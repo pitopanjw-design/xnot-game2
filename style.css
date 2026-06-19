@@ -52,11 +52,12 @@ body, html {
 }
 
 /* ============================
-   상단 자산 바
+   상단 자산 바 위치 조정
 ============================ */
 #asset-bar {
     position: absolute;
-    top: 60px; left: 0; right: 0;
+    top: 30px; /* 💡 기존 60px에서 (60 + 0) / 2 = 30px 좌표로 정확히 상향 조정 */
+    left: 0; right: 0;
     display: flex;
     justify-content: center;
     align-items: center;
