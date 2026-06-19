@@ -283,16 +283,22 @@ function initTMA() {
 function updateAssetUI() {
     document.getElementById('hearts-count').innerText = playerHearts;
     document.getElementById('sp-count').innerText = playerSP.toLocaleString();
+    
+    // index.html에서 삭제된 roulette-title 참조 오류 안전 예외 처리 보강
+    const rt = document.getElementById('roulette-title');
+    
     if (playerHearts<=0 && currentStatus==='PRE_SPIN') {
-        document.getElementById('roulette-title').innerText = t('heartsLack');
-        document.getElementById('main-btn').innerText = t('watchAd');
-        document.getElementById('main-btn').style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
-        document.getElementById('main-btn').style.color = '#fff';
+        if (rt) rt.innerText = t('heartsLack');
+        const mainBtn = document.getElementById('main-btn');
+        mainBtn.innerText = t('watchAd');
+        mainBtn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+        mainBtn.style.color = '#fff';
     } else if (currentStatus==='PRE_SPIN') {
-        document.getElementById('roulette-title').innerText = t('lobbyTitle');
-        document.getElementById('main-btn').innerText = t('spinBtn');
-        document.getElementById('main-btn').style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
-        document.getElementById('main-btn').style.color = 'var(--ink)';
+        if (rt) rt.innerText = t('lobbyTitle');
+        const mainBtn = document.getElementById('main-btn');
+        mainBtn.innerText = t('spinBtn');
+        mainBtn.style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
+        mainBtn.style.color = 'var(--ink)';
     }
 }
 function setAssetBarVisible(v) { document.getElementById('asset-bar').style.display = v?'flex':'none'; }
@@ -340,16 +346,17 @@ function triggerWheel(e) {
     const idx = Math.floor(Math.random()*STONES.length);
     const stone_def = STONES[idx];
     
-    // 💡 변경된 12시(0도), 3시(90도), 6시(180도), 7시(270도) 정각 정지 오프셋 보정 수식
-    const offsets = [0, 270, 180, 90]; 
+    /* 💡 대각선 배치(45도, 135도, 225도, 315도)에 맞춰 
+          12시 바늘 정각에 돌이 딱 멈추도록 오프셋 수정 */
+    const offsets = [45, 315, 225, 135]; 
     const offset = offsets[idx];
-    const totalRot = 2160 - offset; // 6바퀴 회전 후 해당 돌이 12시 바늘 밑에 정확히 서도록 계산
+    const totalRot = 2160 - offset; // 회전 후 당첨된 대각선 돌을 12시로 정렬
 
     const wEl = document.getElementById('roulette-wheel');
     wEl.style.transition = 'transform 3.8s cubic-bezier(0.15,0.85,0.15,1)';
     wEl.style.transform = `rotate(${totalRot}deg)`;
 
-    // 가챠 바퀴 회전 틱 사운드 피드백
+    // 바퀴 회전 사운드 틱 레이어
     let lastSector = 0;
     const tick = () => {
         if (!isSpinning) return;
@@ -364,12 +371,12 @@ function triggerWheel(e) {
         wEl.style.transform = `rotate(${(360 - offset) % 360}deg)`;
 
         selectedStone = stone_def;
-        
-        // 💡 기존의 휠 캡 텍스트 주입 코드는 HTML에서 삭제되었으므로 하이라이트 처리만 깔끔하게 이관
         document.getElementById('stone-desc-text').innerText = t(selectedStone.nameKey+'Desc');
-        document.getElementById('roulette-title').innerText = t('stoneReady');
         
-        // 섹터 엘리먼트에 직접 하이라이트 클래스 부여
+        // 💡 [수정] index.html에서 지워진 roulette-title 요소를 검사하여 에러가 나지 않도록 예외 처리
+        const rt = document.getElementById('roulette-title');
+        if (rt) rt.innerText = t('stoneReady');
+        
         const sectors = wEl.querySelectorAll('.wheel-sector');
         sectors.forEach((sec, sIdx) => {
             if(sIdx === idx) sec.classList.add('highlight');
