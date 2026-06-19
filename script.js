@@ -281,24 +281,28 @@ function initTMA() {
 //  🎨 인터페이스 헬퍼 메소드
 // ===========================================================
 function updateAssetUI() {
-    document.getElementById('hearts-count').innerText = playerHearts;
-    document.getElementById('sp-count').innerText = playerSP.toLocaleString();
+    const hc = document.getElementById('hearts-count');
+    const sc = document.getElementById('sp-count');
+    if (hc) hc.innerText = playerHearts;
+    if (sc) sc.innerText = playerSP.toLocaleString();
     
-    // index.html에서 삭제된 roulette-title 참조 오류 안전 예외 처리 보강
     const rt = document.getElementById('roulette-title');
+    const mb = document.getElementById('main-btn'); // 💡 명확한 로컬 변수 확보
     
-    if (playerHearts<=0 && currentStatus==='PRE_SPIN') {
+    if (playerHearts <= 0 && currentStatus === 'PRE_SPIN') {
         if (rt) rt.innerText = t('heartsLack');
-        const mainBtn = document.getElementById('main-btn');
-        mainBtn.innerText = t('watchAd');
-        mainBtn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
-        mainBtn.style.color = '#fff';
-    } else if (currentStatus==='PRE_SPIN') {
+        if (mb) {
+            mb.innerText = t('watchAd');
+            mb.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+            mb.style.color = '#fff';
+        }
+    } else if (currentStatus === 'PRE_SPIN') {
         if (rt) rt.innerText = t('lobbyTitle');
-        const mainBtn = document.getElementById('main-btn');
-        mainBtn.innerText = t('spinBtn');
-        mainBtn.style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
-        mainBtn.style.color = 'var(--ink)';
+        if (mb) {
+            mb.innerText = t('spinBtn');
+            mb.style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
+            mb.style.color = 'var(--ink)';
+        }
     }
 }
 function setAssetBarVisible(v) { document.getElementById('asset-bar').style.display = v?'flex':'none'; }
@@ -1034,11 +1038,41 @@ function endGame() {
 }
 
 function closeResultModal() {
-    document.getElementById('result-modal').style.display='none'; currentStatus='PRE_SPIN';
-    const rs=document.getElementById('roulette-screen'); rs.style.display='flex'; rs.style.opacity='1';
-    document.getElementById('roulette-title').innerText=t('lobbyTitle'); document.getElementById('wheel-cap-text').innerText=t('wheelTouch'); document.getElementById('wheel-cap-text').style.color='#fff'; document.getElementById('stone-desc-text').innerText='';
-    document.getElementById('main-btn').innerText=t('spinBtn'); document.getElementById('main-btn').style.background='linear-gradient(135deg,var(--neon-lime),#a8ff00)'; document.getElementById('main-btn').style.color='var(--ink)';
-    setAssetBarVisible(true); updateAssetUI(); changeRandomBg(); drawStaticBackground();
+    document.getElementById('result-modal').style.display='none'; 
+    
+    // 💡 1. 상태 머신을 확실하게 PRE_SPIN(뽑기 전)으로 먼저 돌려놓습니다.
+    currentStatus='PRE_SPIN'; 
+    
+    const rs=document.getElementById('roulette-screen'); 
+    if (rs) {
+        rs.style.display='flex'; 
+        rs.style.opacity='1';
+    }
+    
+    const rt = document.getElementById('roulette-title');
+    if (rt) rt.innerText=t('lobbyTitle'); 
+    
+    const wc = document.getElementById('wheel-cap-text');
+    if (wc) {
+        wc.innerText=t('wheelTouch'); 
+        wc.style.color='#fff';
+    }
+    
+    const sd = document.getElementById('stone-desc-text');
+    if (sd) sd.innerText='';
+
+    // 💡 2. 버튼 엘리먼트를 확실하게 취득하여 가챠 버튼으로 강제 강제 리셋합니다.
+    const mb = document.getElementById('main-btn');
+    if (mb) {
+        mb.innerText = t('spinBtn'); 
+        mb.style.background = 'linear-gradient(135deg, var(--neon-lime) 0%, #a8ff00 100%)'; 
+        mb.style.color = 'var(--ink)';
+    }
+    
+    setAssetBarVisible(true); 
+    updateAssetUI(); 
+    changeRandomBg(); 
+    drawStaticBackground();
 }
 
 // ===========================================================
