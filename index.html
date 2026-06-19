@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>XNOT Stone Skipper V4.0 — The Real Deal</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="game-container">
+
+    <canvas id="bg-canvas"></canvas>
+
+    <canvas id="fx-canvas"></canvas>
+
+    <div id="intro-screen">
+        <div class="intro-btn-group">
+            <button class="main-action" id="intro-start-btn" onclick="closeIntroScreen(event)">게임 시작 ⛏️</button>
+            <button class="sec-action"  id="intro-info-btn"  onclick="openInfoModal(event)">게임 소개 ℹ️</button>
+        </div>
+    </div>
+
+    <div id="intro-info-modal">
+        <div class="info-box">
+            <h2 data-i18n="introInfoTitle">게임 소개</h2>
+            <p data-i18n="introDesc">XNOT 물수제비 채굴은 차세대 디지털 자산인 XNOT 코인을 강물 위 물수제비의 탄성을 이용해 채굴하는 하이퍼 캐주얼 광산 게임입니다. 돌을 튕겨 최적의 탄성을 얻고 SP를 채굴하세요!</p>
+            <button class="action-confirm-btn" onclick="closeInfoModal(event)" data-i18n="resConfirm">확인</button>
+        </div>
+    </div>
+
+    <div id="asset-bar" style="display:none;">
+        <div class="asset-box" id="user-card" style="display:none;">👤 <span id="user-name">Guest</span></div>
+        <div class="asset-box">❤️ <span id="hearts-count">5</span> / 5</div>
+        <div class="asset-box">💎 <span id="sp-count">0</span> SP</div>
+        <div class="asset-box" id="mute-btn" style="cursor:pointer;" onclick="toggleMute(event)">🔊</div>
+    </div>
+
+    <div id="roulette-screen">
+        <div id="roulette-title" data-i18n="lobbyTitle">룰렛을 터치하여 돌을 뽑으세요</div>
+
+        <div class="wheel-wrap">
+            <div class="wheel-pointer">
+                <svg width="38" height="38" viewBox="0 0 38 38">
+                    <polygon points="19,4 30,28 19,22 8,28" fill="#ef4444" stroke="#000" stroke-width="2.5"/>
+                </svg>
+            </div>
+
+            <div id="roulette-wheel" onclick="triggerWheel(event)">
+                <div class="wheel-sector" style="transform:rotate(0deg)   translateY(-75px) rotate(0deg);"><div class="mini-stone slate"></div></div>
+                <div class="wheel-sector" style="transform:rotate(90deg)  translateY(-75px) rotate(-90deg);"><div class="mini-stone pebble"></div></div>
+                <div class="wheel-sector" style="transform:rotate(180deg) translateY(-75px) rotate(-180deg);"><div class="mini-stone basalt"></div></div>
+                <div class="wheel-sector" style="transform:rotate(270deg) translateY(-75px) rotate(-270deg);"><div class="mini-stone gold"></div></div>
+                <div id="wheel-cap"><div id="wheel-cap-text" data-i18n="wheelTouch">돌 뽑기 터치!</div></div>
+            </div>
+        </div>
+
+        <p id="stone-desc-text"></p>
+        <button id="main-btn" onclick="handleMainBtn(event)" data-i18n="spinBtn">SPIN WHEEL</button>
+        <button id="shop-btn" onclick="openShop()">⚙️ 돌 능력 강화 상점</button>
+    </div>
+
+    <div id="transition-overlay">
+        <div id="transition-stone-img"></div>
+    </div>
+
+    <div id="hud-layer">
+        <div id="score-display">READY</div>
+        <div id="message">채굴 준비 완료</div>
+    </div>
+
+    <div id="angle-gauge-wrap">
+        <div id="angle-gauge-bg">
+            <div class="gauge-zone gz-red"    id="gz-red-bot"></div>
+            <div class="gauge-zone gz-safe"   id="gz-safe-bot"></div>
+            <div class="gauge-zone gz-perfect" id="gz-perfect">
+                <span class="gz-perfect-label" data-i18n="perfect">PERFECT</span>
+            </div>
+            <div class="gauge-zone gz-safe"   id="gz-safe-top"></div>
+            <div class="gauge-zone gz-red"    id="gz-red-top"></div>
+            <div id="gauge-bar"></div>
+            <div id="gauge-marker"></div>
+        </div>
+    </div>
+
+    <div id="swipe-guide">▲ SWIPE UP FAST! ▲</div>
+
+    <div id="stone-el"></div>
+
+    <div id="youtube-modal">
+        <h2 data-i18n="adTitle">유튜브 광고 시청 중...</h2>
+        <p data-i18n="adDesc">하트를 충전하기 위해 대표님 채널 영상을 시청하고 있습니다.</p>
+        <div id="video-timer">5</div>
+        <p id="video-complete-txt" data-i18n="adComplete">시청 완료 시 하트 5개가 완충됩니다.</p>
+    </div>
+
+    <div id="result-modal">
+        <div class="result-box-outer">
+            <div class="result-box-inner">
+                <img src="images/result_emblem.png" class="result-emblem" alt="trophy">
+                <div class="result-title" data-i18n="resTitle">물수제비 결과</div>
+                <div class="result-items">
+                    <div class="result-card">
+                        <span class="result-label" data-i18n="resStone">🪨 선택한 돌</span>
+                        <span id="res-stone-name" class="result-val">-</span>
+                    </div>
+                    <div class="result-card">
+                        <span class="result-label" data-i18n="resBounces">🎯 튕김 횟수</span>
+                        <span id="res-bounce-count" class="result-val">0 회</span>
+                    </div>
+                    <div class="result-card">
+                        <span class="result-label" data-i18n="resPerfects">⭐ Perfect 횟수</span>
+                        <span id="res-perfect-count" class="result-val" style="color:var(--neon-gold)">0 회</span>
+                    </div>
+                    <div class="result-card">
+                        <span class="result-label" data-i18n="resEarned">💎 획득 SP</span>
+                        <span id="res-earned-sp" class="result-val" style="color:var(--neon-lime)">+0 SP</span>
+                    </div>
+                </div>
+                <button class="action-confirm-btn" onclick="closeResultModal()" data-i18n="resConfirm">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="shop-modal">
+        <div class="shop-box">
+            <div class="shop-title">💪 돌 속성 업그레이드</div>
+            <div class="shop-balance">보유 💎 <span id="shop-sp-count">0</span> SP</div>
+            <div class="upgrade-list">
+                <div class="upgrade-card">
+                    <div class="upgrade-info">
+                        <div class="upgrade-name">🏋️ 무게 (Weight)</div>
+                        <div class="upgrade-desc">돌의 관성을 높여 공기/수면 저항을 줄입니다.</div>
+                        <div class="upgrade-stats">Lv.<span id="lv-weight">0</span> → <span id="next-lv-weight">1</span> (<span id="val-weight">0</span>% 저항 완화)</div>
+                    </div>
+                    <button class="upgrade-btn" id="btn-weight" onclick="buyUpgrade('weight')"><span id="cost-weight">300</span> SP</button>
+                </div>
+                <div class="upgrade-card">
+                    <div class="upgrade-info">
+                        <div class="upgrade-name">🥎 탄성 (Elasticity)</div>
+                        <div class="upgrade-desc">수면에서 튀어 오르는 높이가 증가합니다.</div>
+                        <div class="upgrade-stats">Lv.<span id="lv-elasticity">0</span> → <span id="next-lv-elasticity">1</span> (<span id="val-elasticity">0</span>% 반동 증가)</div>
+                    </div>
+                    <button class="upgrade-btn" id="btn-elasticity" onclick="buyUpgrade('elasticity')"><span id="cost-elasticity">300</span> SP</button>
+                </div>
+                <div class="upgrade-card">
+                    <div class="upgrade-info">
+                        <div class="upgrade-name">🌀 스핀 (Spin)</div>
+                        <div class="upgrade-desc">Perfect 판정 타이밍과 각도 허용 오차를 넓혀줍니다.</div>
+                        <div class="upgrade-stats">Lv.<span id="lv-spin">0</span> → <span id="next-lv-spin">1</span> (Perfect 범위 +<span id="val-spin">0</span>%)</div>
+                    </div>
+                    <button class="upgrade-btn" id="btn-spin" onclick="buyUpgrade('spin')"><span id="cost-spin">300</span> SP</button>
+                </div>
+            </div>
+            <button class="close-shop-btn" onclick="closeShop()">상점 닫기</button>
+        </div>
+    </div>
+
+</div><script src="script.js"></script>
+</body>
+</html>
