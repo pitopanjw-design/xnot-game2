@@ -304,16 +304,25 @@ body, html {
 
 .wheel-wrap { position: relative; margin-bottom: 20px; }
 
-/* 룰렛 바늘 포인터 */
+/* ============================
+   바늘 (Pointer) - 아래를 보도록 수정
+============================ */
 .wheel-pointer {
-    position: absolute; top: -22px; left: 50%; transform: translateX(-50%); z-index: 160;
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    /* 💡 transform에 rotate(180deg)를 추가하여 화살표가 아래를 보게 뒤집었습니다. */
+    transform: translateX(-50%) rotate(180deg); 
+    z-index: 160;
     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)) drop-shadow(0 0 10px rgba(239,68,68,0.8));
     animation: pointer-wobble 0.55s ease-in-out infinite alternate;
 }
 .wheel-pointer svg { display: block; }
+
+/* 화살표가 아래 위로 위블(바운스)하는 애니메이션도 뒤집힌 각도(180deg)를 유지하도록 수정 */
 @keyframes pointer-wobble {
-    from { transform: translateX(-50%) translateY(0); }
-    to   { transform: translateX(-50%) translateY(4px); }
+    from { transform: translateX(-50%) translateY(0) rotate(180deg); }
+    to   { transform: translateX(-50%) translateY(4px) rotate(180deg); }
 }
 
 /* 룰렛 가챠 원반 */
