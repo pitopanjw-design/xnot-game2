@@ -340,10 +340,9 @@ body, html {
 }
 
 /* ===================================================
-   🎰 룰렛 섹터 및 돌 에셋 정중앙 (반지름 50%) 배치
+   🎰 룰렛 섹터 대각선 45도 회전 배치 (X자 정렬)
 =================================================== */
 
-/* 1. 휠 내부에서 각 방향의 축이 될 섹터 컨테이너 */
 .wheel-sector {
     position: absolute;
     top: 0;
@@ -351,46 +350,42 @@ body, html {
     width: 100%;
     height: 100%;
     display: flex;
-    justify-content: center; /* 가로 중앙 정렬 */
-    align-items: flex-start; /* 12시 방향(가장자리)을 기준으로 정렬 */
+    justify-content: center;
+    align-items: flex-start;
     pointer-events: none;
     z-index: 155;
 }
 
-/* 2. 각 섹터의 회전축을 설정하여 12시, 3시, 6시, 9시 방향으로 벌려줍니다. */
-.wheel-sector.pos-top    { transform: rotate(0deg); }
-.wheel-sector.pos-right  { transform: rotate(90deg); }
-.wheel-sector.pos-bottom { transform: rotate(180deg); }
-.wheel-sector.pos-left   { transform: rotate(270deg); }
+/* 💡 기본 각도에서 45도씩 더해서 대각선으로 벌려줍니다 */
+.wheel-sector.pos-top    { transform: rotate(45deg); }
+.wheel-sector.pos-right  { transform: rotate(135deg); }
+.wheel-sector.pos-bottom { transform: rotate(225deg); }
+.wheel-sector.pos-left   { transform: rotate(315deg); }
 
-/* 3. 돌 이미지: 가장자리(top:0)와 중심(top:50%)의 딱 '정가운데'인 top: 25% 지점에 배치 */
 .mini-stone {
     position: absolute;
-    top: 25%; /* 💡 가장자리(0%)와 중심(50%)의 정확한 중앙 좌표 */
-    width: 55px;  /* 이미지 짤림 방지를 위한 최적 규격 */
+    top: 25%; /* 가장자리와 중심의 딱 정가운데 유지 */
+    width: 55px;
     height: 55px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
-    
-    /* 💡 중요: 룰렛 원판이 회전할 때 돌 이미지는 항상 똑바로(역회전) 보이도록 상쇄 */
     transform: translate(-50%, -50%);
     left: 50%;
-    transition: transform 0.2s ease;
 }
 
-/* 돌이 회전축에 의해 같이 돌아가 누워 보이지 않도록 방향별로 똑바로 세워줍니다 */
-.wheel-sector.pos-top .mini-stone    { transform: translate(-50%, -50%) rotate(0deg); }
-.wheel-sector.pos-right .mini-stone  { transform: translate(-50%, -50%) rotate(-90deg); }
-.wheel-sector.pos-bottom .mini-stone { transform: translate(-50%, -50%) rotate(-180deg); }
-.wheel-sector.pos-left .mini-stone   { transform: translate(-50%, -50%) rotate(-270deg); }
+/* 💡 돌 이미지가 대각선 축을 따라 기울지 않고, 유저 눈에 똑바로 보이도록 상쇄 각도 보정 */
+.wheel-sector.pos-top .mini-stone    { transform: translate(-50%, -50%) rotate(-45deg); }
+.wheel-sector.pos-right .mini-stone  { transform: translate(-50%, -50%) rotate(-135deg); }
+.wheel-sector.pos-bottom .mini-stone { transform: translate(-50%, -50%) rotate(-225deg); }
+.wheel-sector.pos-left .mini-stone   { transform: translate(-50%, -50%) rotate(-315deg); }
 
-/* 💡 당첨 하이라이트 효과 애니메이션 (위치 이탈 없이 크기만 확장) */
-.wheel-sector.pos-top.highlight .mini-stone    { transform: translate(-50%, -50%) rotate(0deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-lime)); }
-.wheel-sector.pos-right.highlight .mini-stone  { transform: translate(-50%, -50%) rotate(-90deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-cyan)); }
-.wheel-sector.pos-bottom.highlight .mini-stone { transform: translate(-50%, -50%) rotate(-180deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-pink)); }
-.wheel-sector.pos-left.highlight .mini-stone   { transform: translate(-50%, -50%) rotate(-270deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-gold)); }
+/* 하이라이트 효과 시에도 바뀐 대각선 각도 유지 */
+.wheel-sector.pos-top.highlight .mini-stone    { transform: translate(-50%, -50%) rotate(-45deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-lime)); }
+.wheel-sector.pos-right.highlight .mini-stone  { transform: translate(-50%, -50%) rotate(-135deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-cyan)); }
+.wheel-sector.pos-bottom.highlight .mini-stone { transform: translate(-50%, -50%) rotate(-225deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-pink)); }
+.wheel-sector.pos-left.highlight .mini-stone   { transform: translate(-50%, -50%) rotate(-315deg) scale(1.25); filter: drop-shadow(0 0 12px var(--neon-gold)); }
 .mini-stone.slate  { width:55px; height:25px; background-image:url('images/stone_slate.png'); }
 .mini-stone.pebble { width:34px; height:34px; background-image:url('images/stone_pebble.png'); }
 .mini-stone.basalt { width:36px; height:36px; background-image:url('images/stone_basalt.png'); }
