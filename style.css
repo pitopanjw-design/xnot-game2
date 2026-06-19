@@ -339,13 +339,56 @@ body, html {
     border-radius: 50%; pointer-events: none;
 }
 
-/* 동적 휠 내부의 서브 아이콘 구역 */
+/* ===================================================
+   🎰 룰렛 섹터 4방향 칼정렬 배치 (기존 변칙 코드 폐기)
+=================================================== */
+
+/* 휠 내부의 각 아이콘 박스를 정중앙에 띄워두고 회전축을 동기화 */
 .wheel-sector {
-    position: absolute; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; width: 90px; height: 90px;
-    pointer-events: none; z-index: 155;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 90px;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 155;
 }
-.mini-stone { background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6)); }
+
+/* 각 등급별 돌을 회전각(rotate)만큼 꺾은 후, 
+   바깥쪽으로 85px만큼 밀어내고(translateY), 
+   아이콘이 똑바로 보이도록 반대로 재회전(rotate) 시킵니다.
+*/
+.wheel-sector.pos-top {
+    transform: translate(-50%, -50%) rotate(0deg) translateY(-85px) rotate(0deg);
+}
+.wheel-sector.pos-right {
+    transform: translate(-50%, -50%) rotate(90deg) translateY(-85px) rotate(-90deg);
+}
+.wheel-sector.pos-bottom {
+    transform: translate(-50%, -50%) rotate(180deg) translateY(-85px) rotate(-180deg);
+}
+.wheel-sector.pos-left {
+    transform: translate(-50%, -50%) rotate(270deg) translateY(-85px) rotate(-270deg);
+}
+
+/* 미니 돌 기본 크기 및 렌더링 유지 */
+.mini-stone {
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+    will-change: transform;
+    transition: transform 0.2s ease;
+}
+
+/* 💡 당첨 시 하이라이트 효과가 커져도 정렬 위치를 해치지 않도록 scale만 깔끔하게 추가 */
+.wheel-sector.pos-top.highlight .mini-stone    { transform: scale(1.25); filter: drop-shadow(0 0 12px var(--neon-lime)); }
+.wheel-sector.pos-right.highlight .mini-stone  { transform: scale(1.25); filter: drop-shadow(0 0 12px var(--neon-cyan)); }
+.wheel-sector.pos-bottom.highlight .mini-stone { transform: scale(1.25); filter: drop-shadow(0 0 12px var(--neon-pink)); }
+.wheel-sector.pos-left.highlight .mini-stone   { transform: scale(1.25); filter: drop-shadow(0 0 12px var(--neon-gold)); }
 .mini-stone.slate  { width:55px; height:25px; background-image:url('images/stone_slate.png'); }
 .mini-stone.pebble { width:34px; height:34px; background-image:url('images/stone_pebble.png'); }
 .mini-stone.basalt { width:36px; height:36px; background-image:url('images/stone_basalt.png'); }

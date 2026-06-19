@@ -339,14 +339,17 @@ function triggerWheel(e) {
 
     const idx = Math.floor(Math.random()*STONES.length);
     const stone_def = STONES[idx];
-    const offsets = [315, 225, 135, 45];
-    const offset = offsets[idx] + (Math.random()*24-12);
-    const totalRot = 2160 + offset;
+    
+    // 💡 변경된 12시(0도), 3시(90도), 6시(180도), 7시(270도) 정각 정지 오프셋 보정 수식
+    const offsets = [0, 270, 180, 90]; 
+    const offset = offsets[idx];
+    const totalRot = 2160 - offset; // 6바퀴 회전 후 해당 돌이 12시 바늘 밑에 정확히 서도록 계산
 
     const wEl = document.getElementById('roulette-wheel');
     wEl.style.transition = 'transform 3.8s cubic-bezier(0.15,0.85,0.15,1)';
     wEl.style.transform = `rotate(${totalRot}deg)`;
 
+    // 가챠 바퀴 회전 틱 사운드 피드백
     let lastSector = 0;
     const tick = () => {
         if (!isSpinning) return;
@@ -358,14 +361,21 @@ function triggerWheel(e) {
 
     wEl.addEventListener('transitionend', ()=>{
         wEl.style.transition = 'none';
-        wEl.style.transform = `rotate(${totalRot%360}deg)`;
+        wEl.style.transform = `rotate(${(360 - offset) % 360}deg)`;
 
         selectedStone = stone_def;
-        document.getElementById('wheel-cap-text').innerText = t(selectedStone.nameKey);
-        document.getElementById('wheel-cap-text').style.color = selectedStone.color;
+        
+        // 💡 기존의 휠 캡 텍스트 주입 코드는 HTML에서 삭제되었으므로 하이라이트 처리만 깔끔하게 이관
         document.getElementById('stone-desc-text').innerText = t(selectedStone.nameKey+'Desc');
-
         document.getElementById('roulette-title').innerText = t('stoneReady');
+        
+        // 섹터 엘리먼트에 직접 하이라이트 클래스 부여
+        const sectors = wEl.querySelectorAll('.wheel-sector');
+        sectors.forEach((sec, sIdx) => {
+            if(sIdx === idx) sec.classList.add('highlight');
+            else sec.classList.remove('highlight');
+        });
+
         const mb = document.getElementById('main-btn');
         mb.innerText = t('launchBtn');
         mb.style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
