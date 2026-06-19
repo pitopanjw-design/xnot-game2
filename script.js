@@ -346,17 +346,19 @@ function triggerWheel(e) {
     const idx = Math.floor(Math.random()*STONES.length);
     const stone_def = STONES[idx];
     
-    /* 💡 대각선 배치(45도, 135도, 225도, 315도)에 맞춰 
-          12시 바늘 정각에 돌이 딱 멈추도록 오프셋 수정 */
-    const offsets = [45, 315, 225, 135]; 
+    // 1. 네 가지 돌(0:슬레이트, 1:조약돌, 2:현무암, 3:황금운석)이 
+    //    12시 바늘 밑으로 오기 위해 필요한 정확한 룰렛판 회전 오프셋 각도 재매핑
+    const offsets = [315, 225, 135, 45]; 
     const offset = offsets[idx];
-    const totalRot = 2160 - offset; // 회전 후 당첨된 대각선 돌을 12시로 정렬
+
+    // 6바퀴(2160도)를 돌고 목표 대각선 각도만큼 더 진진하여 바늘 밑에 안착
+    const totalRot = 2160 + offset; 
 
     const wEl = document.getElementById('roulette-wheel');
-    wEl.style.transition = 'transform 3.8s cubic-bezier(0.15,0.85,0.15,1)';
+    wEl.style.transition = 'transform 3.8s cubic-bezier(0.15, 0.85, 0.15, 1)';
     wEl.style.transform = `rotate(${totalRot}deg)`;
 
-    // 바퀴 회전 사운드 틱 레이어
+    // 가챠 바퀴 회전 틱 사운드 피드백
     let lastSector = 0;
     const tick = () => {
         if (!isSpinning) return;
@@ -368,25 +370,30 @@ function triggerWheel(e) {
 
     wEl.addEventListener('transitionend', ()=>{
         wEl.style.transition = 'none';
-        wEl.style.transform = `rotate(${(360 - offset) % 360}deg)`;
+        // 애니메이션 종료 후 해당 대각선 정중앙 각도로 깔끔하게 고정 보정
+        wEl.style.transform = `rotate(${offset}deg)`; 
 
         selectedStone = stone_def;
         document.getElementById('stone-desc-text').innerText = t(selectedStone.nameKey+'Desc');
         
-        // 💡 [수정] index.html에서 지워진 roulette-title 요소를 검사하여 에러가 나지 않도록 예외 처리
+        // index.html 에러 방지 예외 처리
         const rt = document.getElementById('roulette-title');
         if (rt) rt.innerText = t('stoneReady');
         
+        // 정확한 대각선 구역에 불빛(하이라이트) 켜기
         const sectors = wEl.querySelectorAll('.wheel-sector');
         sectors.forEach((sec, sIdx) => {
             if(sIdx === idx) sec.classList.add('highlight');
             else sec.classList.remove('highlight');
         });
 
+        // 버튼 정상 활성화 및 스위칭
         const mb = document.getElementById('main-btn');
-        mb.innerText = t('launchBtn');
-        mb.style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
-        mb.style.color = 'var(--ink)';
+        if (mb) {
+            mb.innerText = t('launchBtn');
+            mb.style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
+            mb.style.color = 'var(--ink)';
+        }
 
         currentStatus = 'SPIN_DONE';
         isSpinning = false;
