@@ -163,7 +163,7 @@ let currentStatus = 'PRE_SPIN';
 let isPlaying = false;
 let isDead = false;
 
-let bounceCount = 0, perfectCount = 0, hasTappedBounce = false;
+let bounceCount = 0, perfectCount = 0, hasTappedBounce = false, tapsInCurrentCycle = 0;
 let launchAngle = 20;
 let angleVal = 0.5, angleDir = 1;
 let angleTimerId = null;
@@ -617,7 +617,7 @@ function triggerLaunch(dy, dx) {
     const sf = swipeSpeed/20; if (ap) ap.friction = Math.min(0.9994, (ap.friction||0.978) + sf*0.0006);
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
-    bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false;
+    bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
     particles = []; wakes = []; for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
 
     currentStatus = 'FLYING'; isPlaying = true;
@@ -674,10 +674,9 @@ function updatePhysics() {
     stone.vy *= effectiveFriction;
     stone.vx *= Math.min(0.999, 0.99*wm);
 
-    if (stone.z<=0 && !hasTappedBounce) {
-        const zone = getAngleZone(launchAngle);
-        if (zone==='SAFETY'||zone==='PERFECT') { hasTappedBounce = true; processBounce(zone==='PERFECT'?'PERFECT':'GOOD'); }
-        else { triggerWaterMiss(); }
+    // 미입력 지각 Miss 처리: 사용자가 탭하지 않고 돌이 수면 아래로 가라앉았을 때
+    if (stone.vz < 0 && stone.z < -6 && !isDead) {
+        triggerWaterMiss();
     }
 
     if (stone.vy<0.8 && !isDead) { triggerWaterSink(); }
@@ -706,23 +705,42 @@ function applyStonePos() {
 //  🎯 실시간 타이밍 탭 판정 레이어
 // ===========================================================
 function registerBounceTap(e) {
-    if (currentStatus!=='FLYING'||isDead||hasTappedBounce) return;
-    const zone = getAngleZone(launchAngle); if (zone==='RED') return;
-    
-    let maxZ = 18+upgrades.spin*1.0, minZ = -6;
-    if (zone==='SAFETY') { maxZ*=1.8; minZ=-12; }
-    
-    if (stone.z<=maxZ && stone.z>=minZ && stone.vz<0) {
-        hasTappedBounce = true;
-        const sr = 2+upgrades.spin*0.8;
-        const isPerfA = (launchAngle>=20-sr && launchAngle<=20+sr);
-        const td = Math.abs(stone.z); const tol = 3.5+upgrades.spin*0.45;
-        
-        let rating='BAD';
-        if (zone==='SAFETY') { rating = td<=tol*1.6?'PERFECT':'GOOD'; }
-        else { rating = (td<=tol&&isPerfA)?'PERFECT':(td<=tol*2?'GOOD':'BAD'); }
-        processBounce(rating);
+    if (currentStatus !== 'FLYING' || isDead) return;
+
+    // 돌이 상승 중일 때 탭하면 연타/스팸으로 간주하여 패널티를 부여하고 이번 주기의 탭 기회를 박탈
+    if (stone.vz >= 0) {
+        hasTappedBounce = true; // 플래그를 강제로 true로 묶어 연타 차단
+        stone.vy *= 0.45;       // 전진 속도(vy)를 0.45배 이하로 꺾음
+        stone.vz *= 0.45;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
+        return;
     }
+
+    // 이미 이번 낙하 주기에서 탭을 한 상태에서 또 탭한 경우 (연타 패널티)
+    if (hasTappedBounce) {
+        stone.vy *= 0.45;       // 전진 속도(vy)를 0.45배 이하로 꺾음
+        stone.vz *= 0.45;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
+        return;
+    }
+
+    hasTappedBounce = true;
+    tapsInCurrentCycle = 1;
+
+    const targetRingScale = 1.0 + stone.z / 30;
+
+    let rating = 'BAD';
+    if (targetRingScale >= 0.95 && targetRingScale <= 1.05) {
+        rating = 'PERFECT';
+    } else if ((targetRingScale >= 0.80 && targetRingScale <= 0.94) || (targetRingScale >= 1.06 && targetRingScale <= 1.20)) {
+        rating = 'GOOD';
+    } else {
+        rating = 'BAD';
+    }
+
+    processBounce(rating);
 }
 
 function processBounce(rating) {
@@ -779,6 +797,7 @@ function processBounce(rating) {
     stone.vy = Math.min(nvy, stone.vy*Math.max(0.96,multEff*zM)*vdec); stone.vx *= 0.9;
 
     hasTappedBounce = false;
+    tapsInCurrentCycle = 0;
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
 }
@@ -933,11 +952,36 @@ function drawFxCanvas() {
     }
 
     if (currentStatus==='FLYING' && !isDead && stone.vz<0 && stone.z<=30) {
-        const sr = 2+upgrades.spin*0.8; const isPA = (launchAngle>=20-sr && launchAngle<=20+sr); const urgency = Math.max(0,1-stone.z/30);
-        const rx=50, ry=rx*0.45; fxCtx.save(); fxCtx.beginPath(); fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rx+(1-urgency)*20, ry+(1-urgency)*8, 0,0,Math.PI*2);
-        if (isPA) { fxCtx.strokeStyle=`rgba(217,255,0,${0.35+urgency*0.65})`; fxCtx.lineWidth=3; fxCtx.shadowBlur=12; fxCtx.shadowColor='var(--neon-lime)'; } 
-        else { fxCtx.strokeStyle=`rgba(255,255,255,${0.25+urgency*0.5})`; fxCtx.lineWidth=2; }
-        fxCtx.stroke(); fxCtx.restore();
+        const scale = 1.0 + stone.z / 30;
+        const s = selectedStone || STONES[0];
+        const rx = (s.w / 2) * scale;
+        const ry = (s.h / 2) * scale;
+        const targetY = STONE_FIXED_Y - stone.z * 1.8;
+
+        fxCtx.save();
+        fxCtx.beginPath();
+        fxCtx.ellipse(STONE_FIXED_X, targetY, rx, ry, 0, 0, Math.PI * 2);
+
+        if (scale >= 0.95 && scale <= 1.10) { // PERFECT 임박(1.10 이하)할 때부터 녹색(var(--neon-lime))으로 변경
+            const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
+            fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.2)';
+            fxCtx.lineWidth = 3.5;
+            fxCtx.shadowBlur = 12;
+            fxCtx.shadowColor = 'var(--neon-lime)';
+        } else if ((scale >= 0.80 && scale <= 0.94) || (scale >= 1.11 && scale <= 1.20)) {
+            fxCtx.strokeStyle = '#ffd700';
+            fxCtx.lineWidth = 2.5;
+            fxCtx.shadowBlur = 6;
+            fxCtx.shadowColor = '#ffd700';
+        } else {
+            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            fxCtx.lineWidth = 1.5;
+            fxCtx.shadowBlur = 0;
+            fxCtx.setLineDash([4, 4]);
+        }
+
+        fxCtx.stroke();
+        fxCtx.restore();
     }
 }
 
