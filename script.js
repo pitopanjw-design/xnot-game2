@@ -708,7 +708,7 @@ function applyStonePos() {
 }
 
 // ===========================================================
-//  🎯 [Gem 직접 코딩] 실시간 타이밍 탭 판정 레이어 (런타임 에러 완벽 해결)
+//  🎯 [Gem 직접 코딩] 실시간 타이밍 탭 판정 레이어 (ID 및 런타임 버그 완벽 수정본)
 // ===========================================================
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead || hasTappedBounce) return;
@@ -730,7 +730,7 @@ function registerBounceTap(e) {
     const scale = 1.0 + stone.z / 30;
     let rating = 'BAD';
 
-    // 💡 유저 제안: 돌 아래 고정 원과 동적 수축 원이 완벽히 포개어지는 찰나의 순간 (오차범위 15%로 쾌적화)
+    // 💡 유저 제안: 돌 아래 고정 원과 동적 수축 원이 완벽히 포개어지는 찰나의 순간 (오차범위 15%로 확장하여 쾌적화)
     if (scale >= 0.90 && scale <= 1.15) {
         rating = 'PERFECT';
     } else {
@@ -751,7 +751,7 @@ function processBounce(rating, isAuto = false) {
     else if (rarity === 'Legendary') triggerShake('medium');
     else if (rarity === 'Rare') triggerShake('light');
 
-    // 성능 저하(렉) 완벽 방지: 파티클 생성 최대 오버풀 제한 개수 스케일링 다운
+    // 성능 저하(렉) 완벽 방지: 파티클 생성 최대 오버풀 제한 개수 다이어트
     let pCount = rarity === 'Mythic' ? 45 : rarity === 'Legendary' ? 25 : rarity === 'Rare' ? 15 : 8;
     let baseVz = 0, multEff = 1;
 
@@ -796,7 +796,6 @@ function processBounce(rating, isAuto = false) {
         multEff = 0.98; 
         
         createParticles(ex, ey, false, false, 6);
-        // 💡 [안전 수정] 런타임 에러 방지를 위해 SoundManager 직접 참조로 변경
         if (SoundManager.ctx) SoundManager.playBounce(false); 
     }
 
@@ -847,7 +846,7 @@ function triggerWaterSink() {
 function triggerWake(x, y, scale) { wakes.push({ x, y, vxL: -W * 0.015 * scale, vxR: W * 0.015 * scale, vy: H * 0.022 * scale, width: 8 * scale, alpha: 1, xL: x, xR: x }); }
 
 // ===========================================================
-//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진 (UI 최적화 완료)
+//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진 (ingame-stone 호환 완료)
 // ===========================================================
 function drawFxCanvas() {
     fxCtx.clearRect(0, 0, W, H);
@@ -909,6 +908,46 @@ function drawFxCanvas() {
         }
         fxCtx.restore();
     }
+
+    // 🌟 유저 제안 수렴: 돌 하단 수면 고정 원 + 동적 수축 원 이중 매칭 에셋 시스템
+    if (currentStatus === 'FLYING' && !isDead && stone.vz < 0 && stone.z <= 30) {
+        const ax = STONE_FIXED_X;
+        const ay = STONE_FIXED_Y; 
+        
+        const baseRadiusX = 45;   
+        const baseRadiusY = 18;   
+        
+        const scale = 1.0 + stone.z / 30; 
+        const dynamicRadiusX = baseRadiusX * scale;
+        const dynamicRadiusY = baseRadiusY * scale;
+
+        fxCtx.save();
+        
+        // 🟢 1. 바닥 고정 기준 과녁 원
+        fxCtx.beginPath();
+        fxCtx.ellipse(ax, ay, baseRadiusX, baseRadiusY, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        fxCtx.lineWidth = 2;
+        fxCtx.stroke();
+
+        // 🔵 2. 수축하는 타이밍 원
+        fxCtx.beginPath();
+        fxCtx.ellipse(ax, ay, dynamicRadiusX, dynamicRadiusY, 0, 0, Math.PI * 2);
+
+        if (scale >= 0.90 && scale <= 1.15) {
+            const isBlink = Math.floor(Date.now() / 60) % 2 === 0;
+            fxCtx.strokeStyle = isBlink ? 'rgba(168, 255, 0, 0.9)' : 'rgba(168, 255, 0, 0.3)';
+            fxCtx.lineWidth = 3.5;
+        } else {
+            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+            fxCtx.lineWidth = 1.5;
+            fxCtx.setLineDash([4, 3]); 
+        }
+
+        fxCtx.stroke();
+        fxCtx.restore();
+    }
+}
 
     // 🌟 돌 하단 수면 고정 원 + 동적 수축 원 이중 매칭 에셋 시스템
     if (currentStatus === 'FLYING' && !isDead && stone.vz < 0 && stone.z <= 30) {
