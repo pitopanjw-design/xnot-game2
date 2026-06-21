@@ -758,10 +758,10 @@ function processBounce(rating) {
         haptic('medium'); SoundManager.playBounce(false);
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else {
-        baseVz = (sp.baseVz||1.5)*0.4; multEff = 0.72;
+        baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
         const earned = Math.round(100*selectedStone.mult*0.4);
         document.getElementById('message').innerText = t('badTiming');
-        playerSP += earned; createParticles(ex,ey,false,false,Math.max(8,Math.round(pCount*0.45)));
+        playerSP += earned; createParticles(ex,ey,false,false,4,true);
         haptic('light'); SoundManager.playBounce(false);
     }
 
@@ -1014,7 +1014,7 @@ function spawnGodSplash(x,y) {
     setTimeout(()=>{ flash.remove(); style.remove(); }, 420);
 }
 
-function createParticles(x,y,isPerfect,isSink,count) { if (!isSink) particles.push(new ShockwaveRing(x,y,isPerfect)); const n=count>0?count:(isPerfect?38:(isSink?24:16)); for(let i=0;i<n;i++) particles.push(new SplashParticle(x,y,isPerfect,isSink)); }
+function createParticles(x,y,isPerfect,isSink,count,isBad=false) { if (!isSink && !isBad) particles.push(new ShockwaveRing(x,y,isPerfect)); const n=count>0?count:(isPerfect?38:(isSink?24:16)); for(let i=0;i<n;i++) particles.push(new SplashParticle(x,y,isPerfect,isSink,isBad)); }
 function createTrailParticle(x,y) { const cnt = selectedStone?.rarity==='Mythic'?5:(stone.isCrit?3:1); for(let i=0;i<cnt;i++) particles.push(new TrailParticle(x,y)); }
 
 // ===========================================================
