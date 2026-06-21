@@ -708,16 +708,25 @@ function applyStonePos() {
 }
 
 // ===========================================================
-//  🎯 [Gem 직접 코딩] 실시간 타이밍 탭 판정 레이어 (ID 및 런타임 버그 완벽 수정본)
+//  🎯 실시간 타이밍 탭 판정 레이어
 // ===========================================================
 function registerBounceTap(e) {
-    if (currentStatus !== 'FLYING' || isDead || hasTappedBounce) return;
+    if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 돌이 상승 중(vz >= 0)일 때 화면을 마구 연타하면 스팸 패널티 부여 및 기회 박탈
+    // 돌이 상승 중일 때 탭하면 연타/스팸으로 간주하여 패널티를 부여하고 이번 주기의 탭 기회를 박탈
     if (stone.vz >= 0) {
-        hasTappedBounce = true; 
-        stone.vy *= 0.40; // 전진 스크롤 속도 급감 패널티
-        stone.vz *= 0.40;
+        hasTappedBounce = true; // 플래그를 강제로 true로 묶어 연타 차단
+        stone.vy *= 0.45;       // 전진 속도(vy)를 0.45배 이하로 꺾음
+        stone.vz *= 0.45;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
+        return;
+    }
+
+    // 이미 이번 낙하 주기에서 탭을 한 상태에서 또 탭한 경우 (연타 패널티)
+    if (hasTappedBounce) {
+        stone.vy *= 0.45;       // 전진 속도(vy)를 0.45배 이하로 꺾음
+        stone.vz *= 0.45;
         spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
         haptic('error');
         return;
@@ -726,264 +735,274 @@ function registerBounceTap(e) {
     hasTappedBounce = true;
     tapsInCurrentCycle = 1;
 
-    // 돌 아래 고정 원형 가이드(스케일 1.0)를 향해 수축하는 타이밍 원의 실시간 스케일값
-    const scale = 1.0 + stone.z / 30;
-    let rating = 'BAD';
+    const targetRingScale = 1.0 + stone.z / 30;
 
-    // 💡 유저 제안: 돌 아래 고정 원과 동적 수축 원이 완벽히 포개어지는 찰나의 순간 (오차범위 15%로 확장하여 쾌적화)
-    if (scale >= 0.90 && scale <= 1.15) {
+    let rating = 'BAD';
+    if (targetRingScale >= 0.95 && targetRingScale <= 1.05) {
         rating = 'PERFECT';
     } else {
-        rating = 'BAD'; // 완전히 타이밍이 빗나간 에러 터치 시에만 리스크 패널티 발동
+        rating = 'BAD'; // 5% 오차범위 밖일 때 터치하면 패널티(BAD) 작동
     }
 
     processBounce(rating, false);
 }
 
 function processBounce(rating, isAuto = false) {
-    bounceCount++; 
-    const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
+    bounceCount++; const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
+
+    if (!isAuto) {
+        spawnRatingText(ex, ey, rating);
+    }
+    spawnRipple(ex, ey);
+
     const em = Math.pow(1.08, upgrades.elasticity);
-    const sp = stone.activePhys || selectedStone.physics; 
-    const rarity = selectedStone.rarity;
+    const sp = stone.activePhys || selectedStone.physics; const rarity = selectedStone.rarity;
 
-    if (rarity === 'Mythic') triggerShake('heavy');
-    else if (rarity === 'Legendary') triggerShake('medium');
-    else if (rarity === 'Rare') triggerShake('light');
+    if (rarity==='Mythic') triggerShake('heavy');
+    else if (rarity==='Legendary') triggerShake('medium');
+    else if (rarity==='Rare') triggerShake('light');
 
-    // 성능 저하(렉) 완벽 방지: 파티클 생성 최대 오버풀 제한 개수 다이어트
-    let pCount = rarity === 'Mythic' ? 45 : rarity === 'Legendary' ? 25 : rarity === 'Rare' ? 15 : 8;
-    let baseVz = 0, multEff = 1;
+    let pCount = rarity==='Mythic'?120 : rarity==='Legendary'?60 : rarity==='Rare'?35 : 22;
+    let baseVz=0, multEff=1;
 
-    if (rating === 'PERFECT') {
-        perfectCount++; 
-        baseVz = (sp.baseVz || 1.5) + (selectedStone.mult * 0.4); 
-        multEff = 1.08; // PERFECT 이익: 탄성 및 추진 관성 가속
+    if (rating==='PERFECT') {
+        perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
         stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5);
-        
-        const earned = Math.round(100 * selectedStone.mult * 2.5);
+        const earned = Math.round(100*selectedStone.mult*2.5);
         if (!isAuto) {
-            spawnRatingText(ex, ey, 'PERFECT');
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
         }
-        playerSP += earned; 
-        createParticles(ex, ey, true, false, pCount);
-        haptic('heavy'); 
-        SoundManager.playBounce(true);
-        
-        if (perfectCount === 1 && !isAuto) { 
-            spawnDramaticText(t('perfect') + ' BOUNCE!', 'neon-lime'); 
-        }
-        if (rarity === 'Mythic') spawnGodSplash(ex, ey);
-
-    } else if (rating === 'BAD') {
-        // 💡 유저 제안: 타격 리스크 적용 - 타이밍 조작 실패 시 무참하게 걸려버리는 치명적 제동력
-        baseVz = (sp.baseVz || 1.5) * 0.15; 
-        multEff = 0.40; // 전진 속도 60% 급감소 폭탄 패널티
-        
+        playerSP += earned; createParticles(ex,ey,true,false,Math.round(pCount*1.5));
+        haptic('heavy'); SoundManager.playBounce(true);
+        if (perfectCount===1 && !isAuto) { spawnDramaticText(t('perfect')+' BOUNCE!','neon-lime'); triggerShake('medium'); }
+        if (rarity==='Mythic') spawnGodSplash(ex,ey);
+    } else if (rating==='GOOD') {
+        baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
+        stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5);
+        const earned = Math.round(100*selectedStone.mult*1.2);
         if (!isAuto) {
-            spawnRatingText(ex, ey, 'BAD');
+            document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
+        }
+        playerSP += earned; createParticles(ex,ey,false,false,pCount);
+        haptic('medium'); SoundManager.playBounce(false);
+        if (rarity==='Mythic') spawnGodSplash(ex,ey);
+    } else {
+        baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
+        const earned = Math.round(100*selectedStone.mult*0.4);
+        if (!isAuto) {
             document.getElementById('message').innerText = t('badTiming');
         }
-        createParticles(ex, ey, false, false, 4, true); // 렉 방지 최소 파티클
-        haptic('light'); 
-        SoundManager.playBounce(false);
-
-    } else {
-        // 💡 유저 제안: NO TOUCH (방치형 자동 바운스) 분기점
-        // 화면에 'GOOD' 텍스트를 절대 뿌리지 않고, 페널티 없는 표준 물리 탄성 속도로 부드럽게 자동 질주
-        baseVz = (sp.baseVz || 1.5) * 0.8 + selectedStone.mult * 0.2; 
-        multEff = 0.98; 
-        
-        createParticles(ex, ey, false, false, 6);
-        if (SoundManager.ctx) SoundManager.playBounce(false); 
+        playerSP += earned; createParticles(ex,ey,false,false,4,true);
+        haptic('light'); SoundManager.playBounce(false);
     }
 
-    triggerWake(ex, ey, 0.8);
-    const spEl = document.getElementById('sp-count'); 
-    if (spEl) {
-        spEl.style.transform = 'scale(1.2)'; 
-        spEl.style.color = 'var(--neon-gold)';
-        setTimeout(() => { spEl.style.transform = ''; spEl.style.color = ''; }, 200);
-    }
+    triggerWake(ex, ey, 1.0);
+    const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
+    setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1); 
-    const sbns = 1 + (swipeSpeed / 30);
-    const zone = getAngleZone(launchAngle); 
-    let zM = 1, zvB = 0;
-    
-    if (zone === 'PERFECT') { zM = 1.25; zvB = 0.2; } 
-    else if (zone === 'SAFETY') { zM = 1.08; zvB = 0.05; }
+    const bdec = Math.pow(sp.vzDecay||0.83, bounceCount-1); const sbns = 1+(swipeSpeed/30);
+    const zone = getAngleZone(launchAngle); let zM=1, zvB=0;
+    if (zone==='PERFECT') { zM=1.25; zvB=0.2; } else if (zone==='SAFETY') { zM=1.08; zvB=0.05; }
 
-    stone.z = 0.1; 
-    stone.vz = (baseVz + zvB) * em * sbns * bdec;
-    
-    const vdec = Math.pow(sp.vyDecay || 0.92, bounceCount - 1);
-    const nvy = stone.vy * multEff * (1 + (swipeSpeed * 0.004)) * zM * vdec;
-    stone.vy = Math.min(nvy, stone.vy * Math.max(0.96, multEff * zM) * vdec); 
-    stone.vx *= 0.9;
+    stone.z=0.1; stone.vz = (baseVz+zvB)*em*sbns*bdec;
+    const vdec = Math.pow(sp.vyDecay||0.92, bounceCount-1);
+    const nvy = stone.vy * multEff * (1+(swipeSpeed*0.004)) * zM * vdec;
+    stone.vy = Math.min(nvy, stone.vy*Math.max(0.96,multEff*zM)*vdec); stone.vx *= 0.9;
 
     hasTappedBounce = false;
     tapsInCurrentCycle = 0;
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
-    updateAssetUI(); 
-    saveData(); 
-    if (rating === 'PERFECT') spawnBounceMarker(ex, ey, bounceCount);
+    updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
 }
 
 function triggerWaterMiss() {
-    isDead = true; stone.vz = -3; const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
-    spawnRatingText(ex, ey, 'MISS'); spawnRipple(ex, ey); createParticles(ex, ey, false, true, 15);
+    isDead=true; stone.vz=-3; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
+    spawnRatingText(ex,ey,'MISS'); spawnRipple(ex,ey); createParticles(ex,ey,false,true,22);
     document.getElementById('message').innerText = t('missMsg'); haptic('error'); SoundManager.playSink();
 }
 function triggerWaterSink() {
     if (isDead) return;
-    isDead = true; stone.vz = -1.5; const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
-    spawnRipple(ex, ey); createParticles(ex, ey, false, true, 10);
+    isDead=true; stone.vz=-1.5; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
+    spawnRipple(ex,ey); createParticles(ex,ey,false,true,14);
     document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
 }
 
-function triggerWake(x, y, scale) { wakes.push({ x, y, vxL: -W * 0.015 * scale, vxR: W * 0.015 * scale, vy: H * 0.022 * scale, width: 8 * scale, alpha: 1, xL: x, xR: x }); }
+function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
 
 // ===========================================================
-//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진 (ingame-stone 호환 완료)
+//  🖼️ 7 레이어 입체 2.5D 카메라 무한 원근 드로잉
+// ===========================================================
+function drawStaticBackground() {
+    const img = bgImgCache[currentBgPath];
+    if (img && img.complete) { bgCtx.drawImage(img, 0, 0, W, H); } 
+    else { bgCtx.fillStyle='#050510'; bgCtx.fillRect(0,0,W,H); }
+}
+
+function draw7LayerBG() {
+    bgCtx.clearRect(0,0,W,H);
+    const p = Math.min(layerProgress, 1.0); const vp = { x: W/2, y: HORIZON_Y }; const lobbyImg = bgImgCache[currentBgPath];
+
+    const rarity = selectedStone?.rarity||'Ordinary'; const rarityBgImg = RARITY_BG[rarity];
+    if (rarityBgImg && rarityBgImg.complete) { bgCtx.drawImage(rarityBgImg, 0, 0, W, HORIZON_Y*1.1); } 
+    else {
+        const sg = bgCtx.createLinearGradient(0,0,0,HORIZON_Y); sg.addColorStop(0,'#010208'); sg.addColorStop(1,'#060d22');
+        bgCtx.fillStyle=sg; bgCtx.fillRect(0,0,W,HORIZON_Y);
+    }
+
+    LAYERS.slice(1).forEach((layer, idx)=>{
+        const parallax = layer.parallax; const zoomFactor = 1 + p * parallax * 5.5;
+        const baseBot = HORIZON_Y + (H-HORIZON_Y)*((idx+0.8)/7); const y = vp.y + (baseBot - vp.y);
+
+        bgCtx.save(); bgCtx.translate(vp.x, vp.y); bgCtx.scale(zoomFactor, zoomFactor);
+
+        if (lobbyImg && lobbyImg.complete) {
+            const srcY = H*0.45; bgCtx.drawImage(lobbyImg, 0, srcY, W, H-srcY, -vp.x, 0, W, H-HORIZON_Y);
+        } else {
+            const wg = bgCtx.createLinearGradient(0,0,0,H-HORIZON_Y);
+            const colors = [ ['#061328','#020b1a'],['#051020','#010810'],['#040d1a','#010709'], ['#030a14','#010507'],['#020710','#010305'],['#010408','#000203'] ];
+            const c = colors[idx]||colors[0]; wg.addColorStop(0,c[0]); wg.addColorStop(1,c[1]);
+            bgCtx.fillStyle=wg; bgCtx.fillRect(-vp.x, 0, W, H-HORIZON_Y);
+        }
+        bgCtx.restore();
+
+        if (idx>=1) {
+            const lineAlpha = Math.min(1,(p*parallax+0.05)*(0.3+idx*0.05));
+            bgCtx.save(); bgCtx.translate(vp.x, vp.y); bgCtx.scale(zoomFactor, zoomFactor); bgCtx.beginPath();
+            bgCtx.moveTo(-W, y-vp.y); bgCtx.lineTo(W, y-vp.y);
+            let lc='rgba(255,255,255,'+lineAlpha*0.8+')';
+            if (rarity==='Rare') lc=`rgba(0,240,255,${lineAlpha})`;
+            else if (rarity==='Legendary') lc=`rgba(192,132,252,${lineAlpha})`;
+            else if (rarity==='Mythic') lc=`rgba(255,215,0,${lineAlpha})`;
+            bgCtx.strokeStyle=lc; bgCtx.lineWidth=1+idx*0.5; bgCtx.stroke(); bgCtx.restore();
+        }
+    });
+
+    rippleLayers.forEach(l=>{
+        const rz = l.z; const lineY = HORIZON_Y + (H-HORIZON_Y)*Math.pow(rz,2.2); const hw = W*0.5*Math.pow(rz,1.4);
+        let lAlpha = rz*0.18; if (rarity==='Rare') lAlpha=rz*0.25; else if (rarity==='Legendary') lAlpha=rz*0.28; else if (rarity==='Mythic') lAlpha=rz*0.35;
+
+        bgCtx.beginPath(); bgCtx.moveTo(vp.x-hw, lineY); bgCtx.lineTo(vp.x+hw, lineY);
+        let sc='rgba(255,255,255,'+lAlpha+')';
+        if (rarity==='Rare') sc=`rgba(0,240,255,${lAlpha})`; else if (rarity==='Legendary') sc=`rgba(192,132,252,${lAlpha})`; else if (rarity==='Mythic') sc=`rgba(255,215,0,${lAlpha})`;
+        bgCtx.strokeStyle=sc; bgCtx.lineWidth=0.5+rz*2.2; bgCtx.stroke();
+    });
+
+    wakes.forEach(w=>{
+        bgCtx.save(); bgCtx.beginPath(); bgCtx.moveTo(w.x,w.y); bgCtx.lineTo(w.xL, w.y+(w.y-HORIZON_Y)*0.2);
+        bgCtx.moveTo(w.x,w.y); bgCtx.lineTo(w.xR, w.y+(w.y-HORIZON_Y)*0.2);
+        bgCtx.strokeStyle=`rgba(255,255,255,${w.alpha*0.8})`; bgCtx.lineWidth=w.width*w.alpha; bgCtx.lineCap='round'; bgCtx.stroke(); bgCtx.restore();
+    });
+
+    const islandScale = Math.pow(p,3.0)*9+0.04;
+    bgCtx.save(); bgCtx.translate(vp.x, vp.y); bgCtx.scale(islandScale, islandScale); bgCtx.beginPath();
+    bgCtx.moveTo(-25,0); bgCtx.lineTo(-18,-2.5); bgCtx.lineTo(-10,-2); bgCtx.lineTo(-4,-7); bgCtx.lineTo(0,-8); bgCtx.lineTo(4,-7); bgCtx.lineTo(10,-2); bgCtx.lineTo(18,-2.5); bgCtx.lineTo(25,0); bgCtx.closePath();
+    const iGrad = bgCtx.createLinearGradient(0,-8,0,0);
+    if (rarity==='Mythic') { iGrad.addColorStop(0,'#451a03'); iGrad.addColorStop(1,'#030810'); }
+    else if (rarity==='Legendary') { iGrad.addColorStop(0,'#1e1b4b'); iGrad.addColorStop(1,'#030810'); }
+    else { iGrad.addColorStop(0,'#0d2b45'); iGrad.addColorStop(1,'#030810'); }
+    bgCtx.fillStyle=iGrad; bgCtx.fill();
+
+    bgCtx.beginPath(); bgCtx.moveTo(-2,-8); bgCtx.lineTo(2,-8); bgCtx.lineTo(0.5,-7.2); bgCtx.lineTo(-0.5,-7.2); bgCtx.closePath();
+    bgCtx.fillStyle = rarity==='Mythic'?'#ef4444':'#f59e0b'; bgCtx.fill(); bgCtx.restore();
+
+    const hzGrad = bgCtx.createLinearGradient(0,HORIZON_Y-8,0,HORIZON_Y+8); let hzC = 'rgba(255,255,255,0.14)';
+    if (rarity==='Rare') hzC='rgba(0,240,255,0.2)'; else if (rarity==='Legendary') hzC='rgba(192,132,252,0.22)'; else if (rarity==='Mythic') hzC='rgba(255,215,0,0.28)';
+    hzGrad.addColorStop(0,'transparent'); hzGrad.addColorStop(0.5,hzC); hzGrad.addColorStop(1,'transparent');
+    bgCtx.fillStyle=hzGrad; bgCtx.fillRect(0,HORIZON_Y-8,W,16);
+}
+
+// ===========================================================
+//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진
 // ===========================================================
 function drawFxCanvas() {
-    fxCtx.clearRect(0, 0, W, H);
+    fxCtx.clearRect(0,0,W,H);
 
-    if (currentStatus === 'FLYING' && !isDead) {
+    if (currentStatus==='FLYING' && !isDead) {
         const speed = stone.vy;
         if (speed > 3) {
-            const lineCount = Math.min(36, Math.floor((speed - 3) * 1.8)); 
-            const alpha = Math.max(0, Math.min(0.5, (speed - 3) / 25));
-            fxCtx.save(); 
-            fxCtx.globalAlpha = alpha;
-            for (let i = 0; i < lineCount; i++) {
-                const angle = (i / lineCount) * Math.PI * 2 + (stone.y * 0.05);
-                const startR = W * 0.42 + Math.random() * W * 0.10; 
-                const endR = W * 0.55 + Math.random() * W * 0.25;
-                const ex1 = CX + Math.cos(angle) * startR; const ey1 = HORIZON_Y + Math.sin(angle) * startR * 0.45;
-                const ex2 = CX + Math.cos(angle) * endR; const ey2 = HORIZON_Y + Math.sin(angle) * endR * 0.45;
+            const lineCount = Math.min(72, Math.floor((speed - 3) * 3.5));
+            const alpha = Math.max(0, Math.min(0.8, (speed - 3) / 20));
+            fxCtx.save(); fxCtx.globalAlpha = alpha;
+            for (let i=0; i<lineCount; i++) {
+                const angle = (i/lineCount)*Math.PI*2 + (stone.y*0.05);
+                const startR = W*0.42 + Math.random()*W*0.10; const endR = W*0.55 + Math.random()*W*0.25;
+                const ex1 = CX + Math.cos(angle)*startR; const ey1 = HORIZON_Y + Math.sin(angle)*startR*0.45;
+                const ex2 = CX + Math.cos(angle)*endR; const ey2 = HORIZON_Y + Math.sin(angle)*endR*0.45;
 
-                const rarity = selectedStone?.rarity || 'Ordinary'; 
-                let lc = 'rgba(255,255,255,0.7)';
-                if (rarity === 'Mythic') lc = 'rgba(255,215,0,0.8)'; 
-                else if (rarity === 'Legendary') lc = 'rgba(192,132,252,0.75)'; 
-                else if (rarity === 'Rare') lc = 'rgba(0,240,255,0.75)';
+                const rarity = selectedStone?.rarity||'Ordinary'; let lc = 'rgba(255,255,255,0.8)';
+                if (rarity==='Mythic') lc='rgba(255,215,0,0.9)'; else if (rarity==='Legendary') lc='rgba(192,132,252,0.85)'; else if (rarity==='Rare') lc='rgba(0,240,255,0.85)';
 
-                fxCtx.beginPath(); fxCtx.moveTo(ex1, ey1); fxCtx.lineTo(ex2, ey2); fxCtx.strokeStyle = lc;
-                fxCtx.lineWidth = (Math.random() * 1.5 + 0.5) * Math.max(0.5, Math.min(2.0, (speed - 3) / 12));
-                fxCtx.stroke();
+                fxCtx.beginPath(); fxCtx.moveTo(ex1,ey1); fxCtx.lineTo(ex2,ey2); fxCtx.strokeStyle=lc;
+                fxCtx.lineWidth = (Math.random()*2+0.5) * Math.max(0.5, Math.min(3.0, (speed - 3) / 10));
+                fxCtx.shadowBlur=3; fxCtx.shadowColor='#000'; fxCtx.stroke();
             }
             fxCtx.restore();
         }
     }
 
-    if (particles.length > 80) particles.splice(0, particles.length - 80);
-    for (let i = particles.length - 1; i >= 0; i--) { 
-        const p = particles[i]; p.update(); p.draw(fxCtx); 
-        if (p.alpha <= 0) particles.splice(i, 1); 
-    }
+    for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.update(); p.draw(fxCtx); if (p.alpha<=0) particles.splice(i,1); }
 
-    if (currentStatus === 'FLYING' && !isDead) {
-        const rarity = selectedStone?.rarity || 'Ordinary'; 
-        const ax = STONE_FIXED_X, ay = STONE_FIXED_Y; 
-        const ang = (stone.y * 0.07) % (Math.PI * 2);
-        fxCtx.save(); fxCtx.translate(ax, ay); fxCtx.rotate(ang);
+    if (currentStatus==='FLYING' && !isDead) {
+        const rarity = selectedStone?.rarity||'Ordinary'; const ax = STONE_FIXED_X, ay = STONE_FIXED_Y; const ang = (stone.y*0.07)%(Math.PI*2);
+        fxCtx.save(); fxCtx.translate(ax,ay); fxCtx.rotate(ang);
 
-        if (rarity === 'Mythic') {
-            const g = fxCtx.createRadialGradient(0, 0, 10, 0, 0, 80); 
-            g.addColorStop(0, 'rgba(255,215,0,0.4)'); g.addColorStop(0.5, 'rgba(249,115,22,0.2)'); g.addColorStop(1, 'rgba(239,68,68,0)');
-            fxCtx.fillStyle = g; fxCtx.beginPath(); fxCtx.ellipse(0, 0, 70, 32, Math.PI / 6, 0, Math.PI * 2); fxCtx.fill();
-        } else if (rarity === 'Legendary') {
-            const g = fxCtx.createRadialGradient(0, 0, 8, 0, 0, 65); 
-            g.addColorStop(0, 'rgba(192,132,252,0.4)'); g.addColorStop(1, 'rgba(59,130,246,0)');
-            fxCtx.fillStyle = g; fxCtx.beginPath(); fxCtx.ellipse(0, 0, 60, 28, Math.PI / 6, 0, Math.PI * 2); fxCtx.fill();
-        } else if (rarity === 'Rare') {
-            fxCtx.strokeStyle = 'rgba(0,240,255,0.7)'; fxCtx.lineWidth = 2;
-            fxCtx.beginPath(); fxCtx.arc(0, 0, 38, 0, Math.PI * 2); fxCtx.stroke();
+        if (rarity==='Mythic') {
+            const g=fxCtx.createRadialGradient(0,0,10,0,0,80); g.addColorStop(0,'rgba(255,215,0,0.5)'); g.addColorStop(0.5,'rgba(249,115,22,0.25)'); g.addColorStop(1,'rgba(239,68,68,0)');
+            fxCtx.fillStyle=g; fxCtx.beginPath(); fxCtx.ellipse(0,0,70,32,Math.PI/6,0,Math.PI*2); fxCtx.fill();
+            fxCtx.strokeStyle='rgba(255,215,0,0.9)'; fxCtx.lineWidth=2.5; fxCtx.shadowBlur=12; fxCtx.shadowColor='#ffd700';
+            fxCtx.beginPath(); fxCtx.ellipse(0,0,55,25,-Math.PI/4,0,Math.PI*2); fxCtx.stroke();
+        } else if (rarity==='Legendary') {
+            const g=fxCtx.createRadialGradient(0,0,8,0,0,65); g.addColorStop(0,'rgba(192,132,252,0.5)'); g.addColorStop(0.6,'rgba(168,85,247,0.2)'); g.addColorStop(1,'rgba(59,130,246,0)');
+            fxCtx.fillStyle=g; fxCtx.beginPath(); fxCtx.ellipse(0,0,60,28,Math.PI/6,0,Math.PI*2); fxCtx.fill();
+        } else if (rarity==='Rare') {
+            fxCtx.strokeStyle='rgba(0,240,255,0.8)'; fxCtx.lineWidth=2; fxCtx.shadowBlur=8; fxCtx.shadowColor='#00f0ff';
+            fxCtx.beginPath(); fxCtx.arc(0,0,38,0,Math.PI*2); fxCtx.stroke();
+            const sx=Math.cos(ang*2.5)*38, sy=Math.sin(ang*2.5)*38; fxCtx.fillStyle='#00f0ff'; fxCtx.beginPath(); fxCtx.arc(sx,sy,4,0,Math.PI*2); fxCtx.fill();
         } else {
-            fxCtx.strokeStyle = 'rgba(255,255,255,0.4)'; fxCtx.lineWidth = 1.5; 
-            fxCtx.beginPath(); fxCtx.arc(0, 0, 32, 0, Math.PI * 2); fxCtx.stroke();
+            fxCtx.strokeStyle='rgba(255,255,255,0.45)'; fxCtx.lineWidth=1.5; fxCtx.beginPath(); fxCtx.arc(0,0,32,0,Math.PI*2); fxCtx.stroke();
         }
         fxCtx.restore();
     }
 
-    // 🌟 유저 제안 수렴: 돌 하단 수면 고정 원 + 동적 수축 원 이중 매칭 에셋 시스템
-    if (currentStatus === 'FLYING' && !isDead && stone.vz < 0 && stone.z <= 30) {
-        const ax = STONE_FIXED_X;
-        const ay = STONE_FIXED_Y; 
+    if (currentStatus==='FLYING' && !isDead && stone.vz<0 && stone.z<=30) {
+        const scale = 1.0 + stone.z / 30;
+        const s = selectedStone || STONES[0];
         
-        const baseRadiusX = 45;   
-        const baseRadiusY = 18;   
+        const rxRef = s.w / 2;
+        const ryRef = s.h / 2;
         
-        const scale = 1.0 + stone.z / 30; 
-        const dynamicRadiusX = baseRadiusX * scale;
-        const dynamicRadiusY = baseRadiusY * scale;
+        const rxTiming = rxRef * scale;
+        const ryTiming = ryRef * scale;
 
         fxCtx.save();
         
-        // 🟢 1. 바닥 고정 기준 과녁 원
+        // 1. 기준 타겟 원 그리기 (돌 아래 수면 고정 좌표)
         fxCtx.beginPath();
-        fxCtx.ellipse(ax, ay, baseRadiusX, baseRadiusY, 0, 0, Math.PI * 2);
-        fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxRef, ryRef, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
         fxCtx.lineWidth = 2;
         fxCtx.stroke();
 
-        // 🔵 2. 수축하는 타이밍 원
+        // 2. 수축하는 타이밍 원 그리기
         fxCtx.beginPath();
-        fxCtx.ellipse(ax, ay, dynamicRadiusX, dynamicRadiusY, 0, 0, Math.PI * 2);
+        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxTiming, ryTiming, 0, 0, Math.PI * 2);
 
-        if (scale >= 0.90 && scale <= 1.15) {
-            const isBlink = Math.floor(Date.now() / 60) % 2 === 0;
-            fxCtx.strokeStyle = isBlink ? 'rgba(168, 255, 0, 0.9)' : 'rgba(168, 255, 0, 0.3)';
+        if (scale >= 0.95 && scale <= 1.10) { // PERFECT 임박(1.10 이하)할 때부터 녹색(var(--neon-lime))
+            const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
+            fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.2)';
             fxCtx.lineWidth = 3.5;
-        } else {
-            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-            fxCtx.lineWidth = 1.5;
-            fxCtx.setLineDash([4, 3]); 
-        }
-
-        fxCtx.stroke();
-        fxCtx.restore();
-    }
-}
-
-    // 🌟 돌 하단 수면 고정 원 + 동적 수축 원 이중 매칭 에셋 시스템
-    if (currentStatus === 'FLYING' && !isDead && stone.vz < 0 && stone.z <= 30) {
-        const ax = STONE_FIXED_X;
-        const ay = STONE_FIXED_Y; 
-        
-        const baseRadiusX = 45;   
-        const baseRadiusY = 18;   
-        
-        const scale = 1.0 + stone.z / 30; 
-        const dynamicRadiusX = baseRadiusX * scale;
-        const dynamicRadiusY = baseRadiusY * scale;
-
-        fxCtx.save();
-        
-        // 🟢 1. 바닥 고정 기준 과녁 원
-        fxCtx.beginPath();
-        fxCtx.ellipse(ax, ay, baseRadiusX, baseRadiusY, 0, 0, Math.PI * 2);
-        fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-        fxCtx.lineWidth = 2;
-        fxCtx.stroke();
-
-        // 🔵 2. 수축하는 타이밍 원
-        fxCtx.beginPath();
-        fxCtx.ellipse(ax, ay, dynamicRadiusX, dynamicRadiusY, 0, 0, Math.PI * 2);
-
-        if (scale >= 0.90 && scale <= 1.15) {
-            const isBlink = Math.floor(Date.now() / 60) % 2 === 0;
-            fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(168, 255, 0, 0.3)';
-            fxCtx.lineWidth = 3.5;
-            fxCtx.shadowBlur = 14;
+            fxCtx.shadowBlur = 12;
             fxCtx.shadowColor = 'var(--neon-lime)';
+        } else if ((scale >= 0.80 && scale <= 0.94) || (scale >= 1.11 && scale <= 1.20)) {
+            fxCtx.strokeStyle = '#ffd700'; // Gold
+            fxCtx.lineWidth = 2.5;
+            fxCtx.shadowBlur = 6;
+            fxCtx.shadowColor = '#ffd700';
         } else {
-            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
             fxCtx.lineWidth = 1.5;
-            fxCtx.setLineDash([4, 3]); 
+            fxCtx.shadowBlur = 0;
+            fxCtx.setLineDash([4, 4]);
         }
 
         fxCtx.stroke();
