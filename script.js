@@ -668,7 +668,11 @@ function updatePhysics() {
 
     const wm = 1+(upgrades.weight*0.0008); const sfm = 1+(swipeSpeed*0.0001);
     const fr = stone.activePhys ? stone.activePhys.friction : 0.978;
-    stone.vy *= Math.min(0.9998, fr*wm*sfm); stone.vx *= Math.min(0.999, 0.99*wm);
+    const baseFr = Math.min(0.9998, fr*wm*sfm);
+    const k = 0.04;
+    const effectiveFriction = 0.985 + (baseFr - 0.985) * Math.exp(-k * stone.vy);
+    stone.vy *= effectiveFriction;
+    stone.vx *= Math.min(0.999, 0.99*wm);
 
     if (stone.z<=0 && !hasTappedBounce) {
         const zone = getAngleZone(launchAngle);
@@ -738,6 +742,7 @@ function processBounce(rating) {
 
     if (rating==='PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
+        stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5);
         const earned = Math.round(100*selectedStone.mult*2.5);
         document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
         playerSP += earned; createParticles(ex,ey,true,false,Math.round(pCount*1.5));
@@ -746,6 +751,7 @@ function processBounce(rating) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
+        stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5);
         const earned = Math.round(100*selectedStone.mult*1.2);
         document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
         playerSP += earned; createParticles(ex,ey,false,false,pCount);
@@ -882,7 +888,8 @@ function drawFxCanvas() {
     if (currentStatus==='FLYING' && !isDead) {
         const speed = stone.vy;
         if (speed > 3) {
-            const lineCount = Math.min(48, Math.floor(speed*2.5)); const alpha = Math.min(0.55, speed/35*0.55);
+            const lineCount = Math.min(72, Math.floor((speed - 3) * 3.5));
+            const alpha = Math.max(0, Math.min(0.8, (speed - 3) / 20));
             fxCtx.save(); fxCtx.globalAlpha = alpha;
             for (let i=0; i<lineCount; i++) {
                 const angle = (i/lineCount)*Math.PI*2 + (stone.y*0.05);
@@ -893,7 +900,8 @@ function drawFxCanvas() {
                 const rarity = selectedStone?.rarity||'Ordinary'; let lc = 'rgba(255,255,255,0.8)';
                 if (rarity==='Mythic') lc='rgba(255,215,0,0.9)'; else if (rarity==='Legendary') lc='rgba(192,132,252,0.85)'; else if (rarity==='Rare') lc='rgba(0,240,255,0.85)';
 
-                fxCtx.beginPath(); fxCtx.moveTo(ex1,ey1); fxCtx.lineTo(ex2,ey2); fxCtx.strokeStyle=lc; fxCtx.lineWidth = Math.random()*2+0.8;
+                fxCtx.beginPath(); fxCtx.moveTo(ex1,ey1); fxCtx.lineTo(ex2,ey2); fxCtx.strokeStyle=lc;
+                fxCtx.lineWidth = (Math.random()*2+0.5) * Math.max(0.5, Math.min(3.0, (speed - 3) / 10));
                 fxCtx.shadowBlur=3; fxCtx.shadowColor='#000'; fxCtx.stroke();
             }
             fxCtx.restore();
