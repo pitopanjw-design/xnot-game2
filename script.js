@@ -708,7 +708,7 @@ function applyStonePos() {
 }
 
 // ===========================================================
-//  🎯 [Gem 직접 코딩] 실시간 타이밍 탭 판정 레이어 (개편 완료)
+//  🎯 [Gem 직접 코딩] 실시간 타이밍 탭 판정 레이어 (런타임 에러 완벽 해결)
 // ===========================================================
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead || hasTappedBounce) return;
@@ -730,8 +730,8 @@ function registerBounceTap(e) {
     const scale = 1.0 + stone.z / 30;
     let rating = 'BAD';
 
-    // 💡 유저 제안: 돌 아래 고정 원과 동적 수축 원이 완벽히 포개어지는 찰나의 순간 (오차범위 10%)
-    if (scale >= 0.95 && scale <= 1.10) {
+    // 💡 유저 제안: 돌 아래 고정 원과 동적 수축 원이 완벽히 포개어지는 찰나의 순간 (오차범위 15%로 쾌적화)
+    if (scale >= 0.90 && scale <= 1.15) {
         rating = 'PERFECT';
     } else {
         rating = 'BAD'; // 완전히 타이밍이 빗나간 에러 터치 시에만 리스크 패널티 발동
@@ -796,8 +796,8 @@ function processBounce(rating, isAuto = false) {
         multEff = 0.98; 
         
         createParticles(ex, ey, false, false, 6);
-        // 오디오 및 묵음 링만 발생
-        if (this.ctx) SoundManager.playBounce(false); 
+        // 💡 [안전 수정] 런타임 에러 방지를 위해 SoundManager 직접 참조로 변경
+        if (SoundManager.ctx) SoundManager.playBounce(false); 
     }
 
     triggerWake(ex, ey, 0.8);
@@ -855,7 +855,7 @@ function drawFxCanvas() {
     if (currentStatus === 'FLYING' && !isDead) {
         const speed = stone.vy;
         if (speed > 3) {
-            const lineCount = Math.min(36, Math.floor((speed - 3) * 1.8)); // 💥 리소스 절약형 압축 카툰선
+            const lineCount = Math.min(36, Math.floor((speed - 3) * 1.8)); 
             const alpha = Math.max(0, Math.min(0.5, (speed - 3) / 25));
             fxCtx.save(); 
             fxCtx.globalAlpha = alpha;
@@ -880,7 +880,6 @@ function drawFxCanvas() {
         }
     }
 
-    // 파티클 풀 최대 한계선 상한값 80개로 대폭 조정하여 화면 렉 근본적 소멸
     if (particles.length > 80) particles.splice(0, particles.length - 80);
     for (let i = particles.length - 1; i >= 0; i--) { 
         const p = particles[i]; p.update(); p.draw(fxCtx); 
@@ -911,33 +910,32 @@ function drawFxCanvas() {
         fxCtx.restore();
     }
 
-    // 🌟 [유저 제안 전정 수렴] 돌 하단 수면 고정 원 + 동적 수축 원 이중 매칭 에셋 시스템
+    // 🌟 돌 하단 수면 고정 원 + 동적 수축 원 이중 매칭 에셋 시스템
     if (currentStatus === 'FLYING' && !isDead && stone.vz < 0 && stone.z <= 30) {
         const ax = STONE_FIXED_X;
-        const ay = STONE_FIXED_Y; // 돌 아래 수면 고정 좌표 타겟팅
+        const ay = STONE_FIXED_Y; 
         
-        const baseRadiusX = 45;   // 하부 원형 고정 과녁 타겟의 기준 가로 반경
-        const baseRadiusY = 18;   // 2.5D 원근 투영을 위한 세로 반경
+        const baseRadiusX = 45;   
+        const baseRadiusY = 18;   
         
-        const scale = 1.0 + stone.z / 30; // 낙하 고도에 맞춰 줄어드는 비율
+        const scale = 1.0 + stone.z / 30; 
         const dynamicRadiusX = baseRadiusX * scale;
         const dynamicRadiusY = baseRadiusY * scale;
 
         fxCtx.save();
         
-        // 🟢 1. 바닥 고정 기준 과녁 원 (항상 선명하게 대기)
+        // 🟢 1. 바닥 고정 기준 과녁 원
         fxCtx.beginPath();
         fxCtx.ellipse(ax, ay, baseRadiusX, baseRadiusY, 0, 0, Math.PI * 2);
         fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
         fxCtx.lineWidth = 2;
         fxCtx.stroke();
 
-        // 🔵 2. 외부에서 수면 과녁을 향해 점차 동심원으로 압축 수축하는 타이밍 원
+        // 🔵 2. 수축하는 타이밍 원
         fxCtx.beginPath();
         fxCtx.ellipse(ax, ay, dynamicRadiusX, dynamicRadiusY, 0, 0, Math.PI * 2);
 
-        // PERFECT 범위 진입 시 시각적 극대화 힌트 스위칭
-        if (scale >= 0.95 && scale <= 1.10) {
+        if (scale >= 0.90 && scale <= 1.15) {
             const isBlink = Math.floor(Date.now() / 60) % 2 === 0;
             fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(168, 255, 0, 0.3)';
             fxCtx.lineWidth = 3.5;
@@ -946,13 +944,14 @@ function drawFxCanvas() {
         } else {
             fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
             fxCtx.lineWidth = 1.5;
-            fxCtx.setLineDash([4, 3]); // 조준 중에는 점선으로 표시하여 직관성 증가
+            fxCtx.setLineDash([4, 3]); 
         }
 
         fxCtx.stroke();
         fxCtx.restore();
     }
 }
+
 // ===========================================================
 //  ⚙️ 이펙트 서브 모듈 오브젝트 풀 인스턴스 클래스들
 // ===========================================================
