@@ -674,7 +674,13 @@ function updatePhysics() {
     stone.vy *= effectiveFriction;
     stone.vx *= Math.min(0.999, 0.99*wm);
 
-    // 미입력 지각 Miss 처리: 사용자가 탭하지 않고 돌이 수면 아래로 가라앉았을 때
+    // 방치형 자동 바운스: 유저가 탭하지 않은 상태에서 수면에 닿으면 GOOD 판정으로 자동 바운스
+    if (stone.vz < 0 && stone.z <= 0 && !hasTappedBounce && !isDead) {
+        hasTappedBounce = true;
+        processBounce('GOOD');
+    }
+
+    // 미입력/패널티 침수 처리: 탭 기회를 소진했거나 연타로 인해 가라앉는 경우
     if (stone.vz < 0 && stone.z < -6 && !isDead) {
         triggerWaterMiss();
     }
@@ -953,34 +959,93 @@ function drawFxCanvas() {
 
     if (currentStatus==='FLYING' && !isDead && stone.vz<0 && stone.z<=30) {
         const scale = 1.0 + stone.z / 30;
-        const s = selectedStone || STONES[0];
-        const rx = (s.w / 2) * scale;
-        const ry = (s.h / 2) * scale;
-        const targetY = STONE_FIXED_Y - stone.z * 1.8;
+        
+        // 게이지 바 설정
+        const barW = 200;
+        const barH = 12;
+        const barX = W / 2;
+        const barY = H * 0.84; // stone-el UI 근처 고정 위치
 
         fxCtx.save();
+        
+        // 1. 게이지 배경 (어두운 반투명 바)
+        fxCtx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        fxCtx.lineWidth = 1.5;
         fxCtx.beginPath();
-        fxCtx.ellipse(STONE_FIXED_X, targetY, rx, ry, 0, 0, Math.PI * 2);
-
-        if (scale >= 0.95 && scale <= 1.10) { // PERFECT 임박(1.10 이하)할 때부터 녹색(var(--neon-lime))으로 변경
-            const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
-            fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.2)';
-            fxCtx.lineWidth = 3.5;
-            fxCtx.shadowBlur = 12;
-            fxCtx.shadowColor = 'var(--neon-lime)';
-        } else if ((scale >= 0.80 && scale <= 0.94) || (scale >= 1.11 && scale <= 1.20)) {
-            fxCtx.strokeStyle = '#ffd700';
-            fxCtx.lineWidth = 2.5;
-            fxCtx.shadowBlur = 6;
-            fxCtx.shadowColor = '#ffd700';
+        if (typeof fxCtx.roundRect === 'function') {
+            fxCtx.roundRect(barX - barW/2, barY - barH/2, barW, barH, 6);
         } else {
-            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-            fxCtx.lineWidth = 1.5;
-            fxCtx.shadowBlur = 0;
-            fxCtx.setLineDash([4, 4]);
+            fxCtx.rect(barX - barW/2, barY - barH/2, barW, barH);
+        }
+        fxCtx.fill();
+        fxCtx.stroke();
+
+        // 2. GOOD 판정 영역 그리기 (금색/황색)
+        fxCtx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+        fxCtx.beginPath();
+        if (typeof fxCtx.roundRect === 'function') {
+            fxCtx.roundRect(barX - 20, barY - barH/2, 40, barH, 2);
+        } else {
+            fxCtx.rect(barX - 20, barY - barH/2, 40, barH);
+        }
+        fxCtx.fill();
+
+        // 3. PERFECT 판정 영역 그리기 (네온 라임색)
+        fxCtx.fillStyle = 'var(--neon-lime)';
+        fxCtx.beginPath();
+        if (typeof fxCtx.roundRect === 'function') {
+            fxCtx.roundRect(barX - 5, barY - barH/2, 10, barH, 2);
+        } else {
+            fxCtx.rect(barX - 5, barY - barH/2, 10, barH);
+        }
+        fxCtx.fill();
+
+        // 4. 인디케이터 핀 좌표 연산
+        const progress = Math.max(-0.2, Math.min(1.0, stone.z / 30));
+        const offset = progress * (barW / 2);
+
+        // 핀 색상 결정 (PERFECT 임박 시 녹색 깜빡임)
+        let pinColor = 'rgba(255, 255, 255, 0.9)';
+        if (scale >= 0.95 && scale <= 1.10) {
+            const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
+            pinColor = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.3)';
+        } else if ((scale >= 0.80 && scale <= 0.94) || (scale >= 1.11 && scale <= 1.20)) {
+            pinColor = '#ffd700'; // Gold
         }
 
-        fxCtx.stroke();
+        const drawIndicatorPin = (ctx, x, y, h, color) => {
+            ctx.fillStyle = color;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            
+            // 세로 핀 선
+            ctx.beginPath();
+            ctx.moveTo(x, y - h/2 - 2);
+            ctx.lineTo(x, y + h/2 + 2);
+            ctx.stroke();
+            
+            // 상단 포인터 삼각형
+            ctx.beginPath();
+            ctx.moveTo(x, y - h/2 - 2);
+            ctx.lineTo(x - 5, y - h/2 - 8);
+            ctx.lineTo(x + 5, y - h/2 - 8);
+            ctx.closePath();
+            ctx.fill();
+
+            // 하단 포인터 삼각형
+            ctx.beginPath();
+            ctx.moveTo(x, y + h/2 + 2);
+            ctx.lineTo(x - 5, y + h/2 + 8);
+            ctx.lineTo(x + 5, y + h/2 + 8);
+            ctx.closePath();
+            ctx.fill();
+        };
+
+        // 좌측 핀, 우측 핀 그리기
+        drawIndicatorPin(fxCtx, barX - offset, barY, barH, pinColor);
+        drawIndicatorPin(fxCtx, barX + offset, barY, barH, pinColor);
+
         fxCtx.restore();
     }
 }
