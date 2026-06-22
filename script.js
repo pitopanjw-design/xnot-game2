@@ -848,10 +848,16 @@ function drawStaticBackground() {
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    // 로비 대기 화면: 모든 이미지를 찌그러짐 없이 화면 전체 크기로 순서대로 포개어 드로잉
-    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, H);
-    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, 0, W, H);
-    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, 0, W, H);
+    // 로비 대기 화면: 각 레이어를 지정된 물리 영역에 알맞은 비율로 배치하여 중첩 렌더링
+    if (img1 && img1.complete) {
+        bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
+    }
+    if (img2 && img2.complete) {
+        bgCtx.drawImage(img2, 0, 0, W, HORIZON_Y);
+    }
+    if (img3 && img3.complete) {
+        bgCtx.drawImage(img3, 0, HORIZON_Y, W, H - HORIZON_Y);
+    }
 }
 
 function draw7LayerBG() {
@@ -863,38 +869,35 @@ function draw7LayerBG() {
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    // 🌌 Layer 1: 은하수 하늘 (최하단 베이스 레이어) -> 화면 전체 고정
+    // 🌌 Layer 1: 은하수 하늘 -> 화면 상단 구역(0, 0, W, HORIZON_Y)에 고정
     if (img1 && img1.complete) {
-        bgCtx.drawImage(img1, 0, 0, W, H);
+        bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
     }
 
-    // ⛰️ Layer 2: 먼 산/섬 (미들 레이어) -> 화면 전체 크기를 유지하며 느리게 무한 루프 스크롤
+    // ⛰️ Layer 2: 먼 산/섬 -> 화면 상단 구역(0, 0, W, HORIZON_Y) 내부에서 느리게 루프 스크롤 (배율 0.05)
     if (img2 && img2.complete) {
-        // 돌의 전진 속도(stone.y)에 비례하여 아래쪽으로 아주 느리고 묵직하게 스크롤 (배율 0.05)
-        let y2 = (stone.y * 0.05) % H;
-        if (y2 < 0) y2 += H;
-
-        // 끊김이나 빈 틈새가 보이지 않도록 상하 2중 레이어 구조로 포개어 렌더링
-        bgCtx.drawImage(img2, 0, y2, W, H);
-        bgCtx.drawImage(img2, 0, y2 - H, W, H);
-    }
-
-    // 🌊 Layer 3: 강물 표면 (최상단 전경 레이어) -> 화면 전체 크기를 유지하며 초고속 무한 루프 스크롤
-    // 💡 물 레이어가 지평선 위쪽(하늘/산 영역)을 가리지 않도록 클리핑 마스크 영역 적용
-    if (img3 && img3.complete) {
         bgCtx.save();
         bgCtx.beginPath();
-        bgCtx.rect(0, HORIZON_Y, W, H - HORIZON_Y);
+        bgCtx.rect(0, 0, W, HORIZON_Y);
         bgCtx.clip();
 
-        // 돌의 속도와 1:1 동기화하여 아래쪽으로 빠르게 무한 스크롤 래핑 (배율 1.0)
-        let y3 = (stone.y * 1.0) % H;
-        if (y3 < 0) y3 += H;
+        let y2 = (stone.y * 0.05) % HORIZON_Y;
+        if (y2 < 0) y2 += HORIZON_Y;
 
-        // 상하 2중 래핑 방식으로 끊김 없이 루핑 드로잉
-        bgCtx.drawImage(img3, 0, y3, W, H);
-        bgCtx.drawImage(img3, 0, y3 - H, W, H);
+        bgCtx.drawImage(img2, 0, y2, W, HORIZON_Y);
+        bgCtx.drawImage(img2, 0, y2 - HORIZON_Y, W, HORIZON_Y);
         bgCtx.restore();
+    }
+
+    // 🌊 Layer 3: 강물 표면 -> 오직 지평선 아래 수면 범위(waterH = H - HORIZON_Y) 내부에서만 초고속 루프 스크롤 (배율 1.0)
+    // 💡 투명 마스크가 상단 레이어를 지우지 않도록 목적지 좌표의 높이와 범위를 지평선 아래로 물리 격리
+    const waterH = H - HORIZON_Y;
+    if (img3 && img3.complete && waterH > 0) {
+        let y3 = (stone.y * 1.0) % waterH;
+        if (y3 < 0) y3 += waterH;
+
+        bgCtx.drawImage(img3, 0, HORIZON_Y + y3, W, waterH);
+        bgCtx.drawImage(img3, 0, HORIZON_Y + y3 - waterH, W, waterH);
     }
 
     // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
