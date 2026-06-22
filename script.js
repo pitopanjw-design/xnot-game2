@@ -187,9 +187,12 @@ let startX = 0, startY = 0, startTime = 0;
 
 // 동적 수면 백드롭 이미지 프리 캐싱 레이어
 const BG_FILES = [
-    'images/milky_way01.png',
-    'images/milky_way02.png',
-    'images/milky_way03.png'
+    'images/foreground.png',
+    'images/midground.png',
+    'images/background.png',
+    'images/foreground_lake.png',
+    'images/midground_lake.png',
+    'images/background_lake.png'
 ];
 const bgImgCache = {};
 BG_FILES.forEach(p => {
@@ -843,16 +846,43 @@ function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.01
 // ===========================================================
 //  🖼️ [Gem 직접 코딩] 정통 3단 레이어 중첩 패럴랙스 엔진 (원상 복구 완료)
 // ===========================================================
+function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
+    if (!img || !img.complete) return;
+    const imgW = img.naturalWidth || img.width;
+    const imgH = img.naturalHeight || img.height;
+    const imgRatio = imgW / imgH;
+    const canvasRatio = W / H;
+    
+    let drawW, drawH;
+    if (canvasRatio > imgRatio) {
+        drawW = W;
+        drawH = W / imgRatio;
+    } else {
+        drawW = H * imgRatio;
+        drawH = H;
+    }
+    
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.clip();
+
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.restore();
+}
+
 function drawStaticBackground() {
     bgCtx.clearRect(0, 0, W, H);
-    const img1 = bgImgCache['images/milky_way01.png'];
-    const img2 = bgImgCache['images/milky_way02.png'];
-    const img3 = bgImgCache['images/milky_way03.png'];
+    const imgBase = bgImgCache['images/foreground.png']?.complete ? bgImgCache['images/foreground.png'] : bgImgCache['images/foreground_lake.png'];
+    const imgMid  = bgImgCache['images/midground.png']?.complete ? bgImgCache['images/midground.png'] : bgImgCache['images/midground_lake.png'];
+    const imgFore = bgImgCache['images/background.png']?.complete ? bgImgCache['images/background.png'] : bgImgCache['images/background_lake.png'];
 
-    // 로비 대기 화면: 화면 정중앙(W/2, H/2) 소실점 기준 3번(원경) -> 2번(중경) -> 1번(전경) 순서로 샌드위치 드로잉
-    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, 0, W, H);
-    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, 0, W, H);
-    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, H);
+    // 로비 대기 화면: 화면 정중앙(W/2, H/2) 소실점 기준 찌그러짐 없이 화면 전체 크기에 예쁘게 겹쳐 드로잉
+    if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
+    if (imgMid && imgMid.complete) drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, 1.0);
+    if (imgFore && imgFore.complete) drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, 1.0);
 }
 
 function draw7LayerBG() {
@@ -862,49 +892,25 @@ function draw7LayerBG() {
     const vp = { x: W / 2, y: HORIZON_Y };
     const rarity = selectedStone?.rarity || 'Ordinary';
 
-    const img1 = bgImgCache['images/milky_way01.png'];
-    const img2 = bgImgCache['images/milky_way02.png'];
-    const img3 = bgImgCache['images/milky_way03.png'];
+    const imgBase = bgImgCache['images/foreground.png']?.complete ? bgImgCache['images/foreground.png'] : bgImgCache['images/foreground_lake.png'];
+    const imgMid  = bgImgCache['images/midground.png']?.complete ? bgImgCache['images/midground.png'] : bgImgCache['images/midground_lake.png'];
+    const imgFore = bgImgCache['images/background.png']?.complete ? bgImgCache['images/background.png'] : bgImgCache['images/background_lake.png'];
 
-    // 🌌 Layer 1: 베이스 (원경) -> 3번 이미지를 화면 정중앙 소실점 기준으로 고정 렌더링
-    if (img3 && img3.complete) {
-        bgCtx.save();
-        bgCtx.drawImage(img3, 0, 0, W, H);
-        bgCtx.restore();
+    // 🌌 Layer 1: 최하단 베이스 -> 'images/foreground.png' 이미지를 화면 정중앙 소실점 기준으로 고정 렌더링 (스케일 변화 없음)
+    if (imgBase && imgBase.complete) {
+        drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     }
 
-    // ⛰️ Layer 2: 미들 (중경) -> 2번 이미지를 소실점 기준으로 배치하되, 돌의 전진에 따라 미세 팽창
-    if (img2 && img2.complete) {
-        bgCtx.save();
-        bgCtx.beginPath();
-        bgCtx.rect(0, 0, W, H); // 전체 영역 제한
-        bgCtx.clip();
-
-        // 돌의 전진 거리(stone.y)에 비례하여 스케일이 1.0에서 미세하게 팽창
-        let s2 = 1.0 + (stone.y * 0.00002);
-        bgCtx.translate(W / 2, H / 2);
-        bgCtx.scale(s2, s2);
-
-        bgCtx.drawImage(img2, -W / 2, -H / 2, W, H);
-        bgCtx.restore();
+    // ⛰️ Layer 2: 중간 레이어 -> 'images/midground.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진에 따라 미세 팽창
+    if (imgMid && imgMid.complete) {
+        const midScale = 1.0 + (stone.y * 0.002) % 0.2;
+        drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, midScale);
     }
 
-    // 🌊 Layer 3: 전경 (터널 가속도) -> 1번 이미지를 방사형 스케일 팽창 루핑으로 렌더링
-    if (img1 && img1.complete) {
-        bgCtx.save();
-        bgCtx.beginPath();
-        bgCtx.rect(0, 0, W, H); // 전체 영역 제한
-        bgCtx.clip();
-
-        // 돌의 속도(stone.vy)와 누적 거리(stone.y)를 결합한 터널 가속도 스케일 구문
+    // 🌊 Layer 3: 최상단 전경 (터널 가속도 핵심) -> 'images/background.png' 이미지를 방사형 스케일 팽창 루핑으로 렌더링
+    if (imgFore && imgFore.complete) {
         const fgScale = 1.0 + (stone.y * 0.015) % 2.5;
-
-        // 소실점 중심 정렬 및 방사형 팽창
-        bgCtx.translate(W / 2, H / 2);
-        bgCtx.scale(fgScale, fgScale);
-
-        bgCtx.drawImage(img1, -W / 2, -H / 2, W, H);
-        bgCtx.restore();
+        drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, fgScale);
     }
 
     // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
