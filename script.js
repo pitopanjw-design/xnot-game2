@@ -849,21 +849,14 @@ function drawStaticBackground() {
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    // 로비 대기 화면: 각 레이어를 지정된 물리 영역에 알맞은 비율로 배치하여 중첩 렌더링
-    if (img1 && img1.complete) {
-        bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
-    }
-    if (img2 && img2.complete) {
-        bgCtx.drawImage(img2, 0, 0, W, HORIZON_Y);
-    }
-    if (img3 && img3.complete) {
-        bgCtx.drawImage(img3, 0, HORIZON_Y, W, H - HORIZON_Y);
-    }
+    // 로비 대기 화면: 화면 정중앙(W/2, H/2) 소실점 기준 3번(원경) -> 2번(중경) -> 1번(전경) 순서로 샌드위치 드로잉
+    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, 0, W, H);
+    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, 0, W, H);
+    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, H);
 }
 
 function draw7LayerBG() {
     bgCtx.clearRect(0, 0, W, H);
-    // 💡 1번 하늘 실종 해결을 위해 composite 복구 설정
     bgCtx.globalCompositeOperation = 'source-over';
     
     const vp = { x: W / 2, y: HORIZON_Y };
@@ -873,63 +866,45 @@ function draw7LayerBG() {
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    // 🌌 Layer 1: 은하수 하늘 -> 화면 상단 구역(0, 0, W, HORIZON_Y)에 고정
-    if (img1 && img1.complete) {
-        bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
-    }
-
-    // ⛰️ Layer 2: 먼 산/섬 -> 화면 상단 구역(0, 0, W, HORIZON_Y) 내부에서 소실점 중심으로 미세 스케일링
-    // 💡 투명 알파 채널이 정상 작동하도록 목적지 렌더링 영역 매핑 정밀화
-    if (img2 && img2.complete) {
+    // 🌌 Layer 1: 베이스 (원경) -> 3번 이미지를 화면 정중앙 소실점 기준으로 고정 렌더링
+    if (img3 && img3.complete) {
         bgCtx.save();
-        bgCtx.beginPath();
-        bgCtx.rect(0, 0, W, HORIZON_Y);
-        bgCtx.clip();
-
-        // 돌의 전진 속도(stone.y)에 따라 미세하게 확대 (소실점 중심)
-        let s = 1.0 + (stone.y * 0.00004);
-        bgCtx.translate(W / 2, HORIZON_Y);
-        bgCtx.scale(s, s);
-
-        bgCtx.drawImage(img2, -W / 2, -HORIZON_Y, W, HORIZON_Y);
+        bgCtx.drawImage(img3, 0, 0, W, H);
         bgCtx.restore();
     }
 
-    // 🌊 Layer 3: 강물 표면 -> 지평선 아래 범위(waterH = H - HORIZON_Y) 내에서 3D 원근 투영 (Mode 7 지수 팽창 스캔라인)
-    // 💡 투명 마스크가 상단 레이어를 지우지 않도록 목적지 좌표 높이와 범위를 지평선 아래로 완벽히 물리 격리
-    const waterH = H - HORIZON_Y;
-    if (img3 && img3.complete && waterH > 0) {
-        const imgH = img3.height || 500;
-        const numSlices = 40; 
-        const sliceH = waterH / numSlices;
+    // ⛰️ Layer 2: 미들 (중경) -> 2번 이미지를 소실점 기준으로 배치하되, 돌의 전진에 따라 미세 팽창
+    if (img2 && img2.complete) {
+        bgCtx.save();
+        bgCtx.beginPath();
+        bgCtx.rect(0, 0, W, H); // 전체 영역 제한
+        bgCtx.clip();
 
-        for (let i = 0; i < numSlices; i++) {
-            let destY = HORIZON_Y + i * sliceH;
-            let t = i / numSlices; // 0 ~ 1
+        // 돌의 전진 거리(stone.y)에 비례하여 스케일이 1.0에서 미세하게 팽창
+        let s2 = 1.0 + (stone.y * 0.00002);
+        bgCtx.translate(W / 2, H / 2);
+        bgCtx.scale(s2, s2);
 
-            // 💡 지수함수적 가로 스케일 인자 (wScale)
-            let wScale = Math.exp(t * 1.5); 
+        bgCtx.drawImage(img2, -W / 2, -H / 2, W, H);
+        bgCtx.restore();
+    }
 
-            // 💡 이동 오프셋 연산 시 stone.y 진행 방향을 양수(+) 가속으로 동기화하고 스케일 곱하기 적용
-            let texY = (stone.y * 1.2 * wScale) % imgH;
-            if (texY < 0) texY += imgH;
+    // 🌊 Layer 3: 전경 (터널 가속도) -> 1번 이미지를 방사형 스케일 팽창 루핑으로 렌더링
+    if (img1 && img1.complete) {
+        bgCtx.save();
+        bgCtx.beginPath();
+        bgCtx.rect(0, 0, W, H); // 전체 영역 제한
+        bgCtx.clip();
 
-            // 가로 사다리꼴 팽창
-            let drawW = W * wScale;
-            let drawX = W / 2 - drawW / 2;
+        // 돌의 속도(stone.vy)와 누적 거리(stone.y)를 결합한 터널 가속도 스케일 구문
+        const fgScale = 1.0 + (stone.y * 0.015) % 2.5;
 
-            // 💡 세로 샘플링 영역을 wScale로 나누어 아래로 올수록 텍스처를 거대하게 지수 확대
-            let srcH = Math.max(1, sliceH / wScale);
-            let srcY1 = texY;
-            let srcH1 = Math.min(srcH, imgH - srcY1);
-            let srcH2 = srcH - srcH1;
+        // 소실점 중심 정렬 및 방사형 팽창
+        bgCtx.translate(W / 2, H / 2);
+        bgCtx.scale(fgScale, fgScale);
 
-            // 래핑 슬라이스 비례 드로잉
-            bgCtx.drawImage(img3, 0, srcY1, img3.width, srcH1, drawX, destY, drawW, srcH1 * wScale);
-            if (srcH1 < srcH) {
-                bgCtx.drawImage(img3, 0, 0, img3.width, srcH2, drawX, destY + (srcH1 * wScale), drawW, sliceH - (srcH1 * wScale));
-            }
-        }
+        bgCtx.drawImage(img1, -W / 2, -H / 2, W, H);
+        bgCtx.restore();
     }
 
     // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
