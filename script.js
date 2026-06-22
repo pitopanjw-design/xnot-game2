@@ -874,30 +874,57 @@ function draw7LayerBG() {
         bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
     }
 
-    // ⛰️ Layer 2: 먼 산/섬 -> 화면 상단 구역(0, 0, W, HORIZON_Y) 내부에서 느리게 루프 스크롤 (배율 0.05)
+    // ⛰️ Layer 2: 먼 산/섬 -> 화면 상단 구역(0, 0, W, HORIZON_Y) 내부에서 소실점 중심으로 미세 스케일링
     if (img2 && img2.complete) {
         bgCtx.save();
         bgCtx.beginPath();
         bgCtx.rect(0, 0, W, HORIZON_Y);
         bgCtx.clip();
 
-        let y2 = (stone.y * 0.05) % HORIZON_Y;
-        if (y2 < 0) y2 += HORIZON_Y;
+        // 돌의 전진 속도(stone.y)에 따라 미세하게 확대 (소실점 중심)
+        let s = 1.0 + (stone.y * 0.00004);
+        bgCtx.translate(W / 2, HORIZON_Y);
+        bgCtx.scale(s, s);
 
-        bgCtx.drawImage(img2, 0, y2, W, HORIZON_Y);
-        bgCtx.drawImage(img2, 0, y2 - HORIZON_Y, W, HORIZON_Y);
+        bgCtx.drawImage(img2, -W / 2, -HORIZON_Y, W, HORIZON_Y);
         bgCtx.restore();
     }
 
-    // 🌊 Layer 3: 강물 표면 -> 오직 지평선 아래 수면 범위(waterH = H - HORIZON_Y) 내부에서만 초고속 루프 스크롤 (배율 1.0)
-    // 💡 투명 마스크가 상단 레이어를 지우지 않도록 목적지 좌표의 높이와 범위를 지평선 아래로 물리 격리
+    // 🌊 Layer 3: 강물 표면 -> 지평선 아래 범위(waterH = H - HORIZON_Y) 내에서 3D 원근 투영 (Mode 7 스캔라인 기법)
     const waterH = H - HORIZON_Y;
     if (img3 && img3.complete && waterH > 0) {
-        let y3 = (stone.y * 1.0) % waterH;
-        if (y3 < 0) y3 += waterH;
+        const imgH = img3.height || 500;
+        const numSlices = 40; // 가로로 쪼개어 그릴 슬라이스 개수
+        const sliceH = waterH / numSlices;
 
-        bgCtx.drawImage(img3, 0, HORIZON_Y + y3, W, waterH);
-        bgCtx.drawImage(img3, 0, HORIZON_Y + y3 - waterH, W, waterH);
+        for (let i = 0; i < numSlices; i++) {
+            let destY = HORIZON_Y + i * sliceH;
+            
+            // t: 지평선(0)에서 하단(1)까지의 진행도
+            let t = i / numSlices; 
+            
+            // 3D 깊이 좌표 z 산출 (아래로 올수록 가까워짐 -> z는 작아짐, 속도는 빨라짐)
+            let z = 1.0 / (t * 3.5 + 0.15); 
+            
+            // 텍스처 V (y) 오프셋 계산 (z에 반비례하고 stone.y에 비례하여 뿜어져 나오는 흐름 유도)
+            let texY = (z * 180 - stone.y * 1.5) % imgH;
+            if (texY < 0) texY += imgH;
+
+            // 가로 사다리꼴 원근 스케일 (하단으로 갈수록 가로로 점차 넓어짐)
+            let wScale = 1.0 + t * 3.5; 
+            let drawW = W * wScale;
+            let drawX = W / 2 - drawW / 2;
+
+            // 래핑 슬라이스 드로잉
+            let srcY1 = texY;
+            let srcH1 = Math.min(sliceH, imgH - srcY1);
+
+            bgCtx.drawImage(img3, 0, srcY1, img3.width, srcH1, drawX, destY, drawW, srcH1);
+            if (srcH1 < sliceH) {
+                let srcH2 = sliceH - srcH1;
+                bgCtx.drawImage(img3, 0, 0, img3.width, srcH2, drawX, destY + srcH1, drawW, srcH2);
+            }
+        }
     }
 
     // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
