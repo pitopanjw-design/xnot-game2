@@ -840,7 +840,7 @@ function triggerWaterSink() {
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
 
 // ===========================================================
-//  🖼️ [Gem 직접 코딩] 3단 입체 패럴랙스 무한 원근 스크롤러 엔진
+//  🖼️ [Gem 직접 코딩] 정통 3단 레이어 중첩 패럴랙스 엔진 (원상 복구 완료)
 // ===========================================================
 function drawStaticBackground() {
     bgCtx.clearRect(0, 0, W, H);
@@ -848,10 +848,10 @@ function drawStaticBackground() {
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    // 로비/대기 화면 상태일 때는 지평선(HORIZON_Y) 기준으로 3대 레이어를 정렬하여 배치
-    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
-    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, HORIZON_Y - (W * 0.25), W, W * 0.25);
-    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, HORIZON_Y, W, H - HORIZON_Y);
+    // 로비 대기 화면: 모든 이미지를 찌그러짐 없이 화면 전체 크기로 순서대로 포개어 드로잉
+    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, H);
+    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, 0, W, H);
+    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, 0, W, H);
 }
 
 function draw7LayerBG() {
@@ -863,34 +863,34 @@ function draw7LayerBG() {
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    // 🌌 Layer 1: 은하수 하늘 (milky_way01) -> 지평선 위쪽 하늘 영역에 굳건히 고정
+    // 🌌 Layer 1: 은하수 하늘 (최하단 베이스 레이어) -> 화면 전체 고정
     if (img1 && img1.complete) {
-        bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
+        bgCtx.drawImage(img1, 0, 0, W, H);
     }
 
-    // ⛰️ Layer 2: 먼 산/바위 섬 (milky_way02) -> 돌의 속도에 비례해 아주 미세하게 아래로 패럴랙스 무브
+    // ⛰️ Layer 2: 먼 산/섬 (미들 레이어) -> 화면 전체 크기를 유지하며 느리게 무한 루프 스크롤
     if (img2 && img2.complete) {
-        const mountainH = W * 0.25; // 원근 비율에 맞춘 산 레이어 고유 높이
-        // 돌이 전진함에 따라 지평선 밑으로 아스라이 밀려나는 0.08배속 미세 스크롤 연산
-        let y2 = (HORIZON_Y - mountainH) + (stone.y * 0.08);
-        
-        // 산이 하늘 위로 역행하거나 과도하게 내려가지 않도록 지평선 경계면에 소프트 고정 가두기 보정
-        if (y2 > HORIZON_Y) y2 = HORIZON_Y; 
-        bgCtx.drawImage(img2, 0, y2, W, mountainH);
+        // 돌의 전진 속도(stone.y)에 비례하여 아래쪽으로 아주 느리고 묵직하게 스크롤 (배율 0.05)
+        let y2 = (stone.y * 0.05) % H;
+        if (y2 < 0) y2 += H;
+
+        // 끊김이나 빈 틈새가 보이지 않도록 상하 2중 레이어 링 구조로 포개어 렌더링
+        bgCtx.drawImage(img2, 0, y2, W, H);
+        bgCtx.drawImage(img2, 0, y2 - H, W, H);
     }
 
-    // 🌊 Layer 3: 강물 표면 (milky_way03) -> 지평선 아래 공간(하단부 전체)을 무한 심리스 루프로 초고속 래핑 스크롤
+    // 🌊 Layer 3: 강물 표면 (최상단 전경 레이어) -> 화면 전체 크기를 유지하며 초고속 무한 루프 스크롤
     if (img3 && img3.complete) {
-        const waterH = H - HORIZON_Y; // 실시간 강물 영역 전체 높이
-        let y3 = (stone.y * 1.0) % waterH; // 전진 마찰 속도 1:1 동기화
-        if (y3 < 0) y3 += waterH;
+        // 돌의 속도와 1:1 동기화하여 아래쪽으로 빠르게 무한 스크롤 래핑 (배율 1.0)
+        let y3 = (stone.y * 1.0) % H;
+        if (y3 < 0) y3 += H;
 
-        // 끊김 현상(구멍)을 완벽 차단하기 위한 상하 2중 바운드 타일링 렌더링
-        bgCtx.drawImage(img3, 0, HORIZON_Y + y3, W, waterH);
-        bgCtx.drawImage(img3, 0, HORIZON_Y + y3 - waterH, W, waterH);
+        // 화면 전체를 완전히 덮으며 역방향 루프 처리
+        bgCtx.drawImage(img3, 0, y3, W, H);
+        bgCtx.drawImage(img3, 0, y3 - H, W, H);
     }
 
-    // 수면 물결선 (rippleLayers) 렌더링
+    // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
     rippleLayers.forEach(l => {
         const rz = l.z; 
         const lineY = HORIZON_Y + (H - HORIZON_Y) * Math.pow(rz, 2.2); 
