@@ -874,20 +874,27 @@ function draw7LayerBG() {
         let y2 = (stone.y * 0.05) % H;
         if (y2 < 0) y2 += H;
 
-        // 끊김이나 빈 틈새가 보이지 않도록 상하 2중 레이어 링 구조로 포개어 렌더링
+        // 끊김이나 빈 틈새가 보이지 않도록 상하 2중 레이어 구조로 포개어 렌더링
         bgCtx.drawImage(img2, 0, y2, W, H);
         bgCtx.drawImage(img2, 0, y2 - H, W, H);
     }
 
     // 🌊 Layer 3: 강물 표면 (최상단 전경 레이어) -> 화면 전체 크기를 유지하며 초고속 무한 루프 스크롤
+    // 💡 물 레이어가 지평선 위쪽(하늘/산 영역)을 가리지 않도록 클리핑 마스크 영역 적용
     if (img3 && img3.complete) {
+        bgCtx.save();
+        bgCtx.beginPath();
+        bgCtx.rect(0, HORIZON_Y, W, H - HORIZON_Y);
+        bgCtx.clip();
+
         // 돌의 속도와 1:1 동기화하여 아래쪽으로 빠르게 무한 스크롤 래핑 (배율 1.0)
         let y3 = (stone.y * 1.0) % H;
         if (y3 < 0) y3 += H;
 
-        // 화면 전체를 완전히 덮으며 역방향 루프 처리
+        // 상하 2중 래핑 방식으로 끊김 없이 루핑 드로잉
         bgCtx.drawImage(img3, 0, y3, W, H);
         bgCtx.drawImage(img3, 0, y3 - H, W, H);
+        bgCtx.restore();
     }
 
     // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
