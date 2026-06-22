@@ -1,3 +1,4 @@
+// ※ 이미지 에셋인 milky_way02.png는 픽셀 오류 방지를 위해 알파 채널이 포함된 투명 PNG-24 포맷으로 저장해 주세요.
 // ===========================================================
 //  🔊 Web Audio API 오디오 시스템
 // ===========================================================
@@ -862,6 +863,9 @@ function drawStaticBackground() {
 
 function draw7LayerBG() {
     bgCtx.clearRect(0, 0, W, H);
+    // 💡 1번 하늘 실종 해결을 위해 composite 복구 설정
+    bgCtx.globalCompositeOperation = 'source-over';
+    
     const vp = { x: W / 2, y: HORIZON_Y };
     const rarity = selectedStone?.rarity || 'Ordinary';
 
@@ -875,6 +879,7 @@ function draw7LayerBG() {
     }
 
     // ⛰️ Layer 2: 먼 산/섬 -> 화면 상단 구역(0, 0, W, HORIZON_Y) 내부에서 소실점 중심으로 미세 스케일링
+    // 💡 투명 알파 채널이 정상 작동하도록 목적지 렌더링 영역 매핑 정밀화
     if (img2 && img2.complete) {
         bgCtx.save();
         bgCtx.beginPath();
@@ -890,39 +895,39 @@ function draw7LayerBG() {
         bgCtx.restore();
     }
 
-    // 🌊 Layer 3: 강물 표면 -> 지평선 아래 범위(waterH = H - HORIZON_Y) 내에서 3D 원근 투영 (Mode 7 스캔라인 기법)
+    // 🌊 Layer 3: 강물 표면 -> 지평선 아래 범위(waterH = H - HORIZON_Y) 내에서 3D 원근 투영 (Mode 7 지수 팽창 스캔라인)
+    // 💡 투명 마스크가 상단 레이어를 지우지 않도록 목적지 좌표 높이와 범위를 지평선 아래로 완벽히 물리 격리
     const waterH = H - HORIZON_Y;
     if (img3 && img3.complete && waterH > 0) {
         const imgH = img3.height || 500;
-        const numSlices = 40; // 가로로 쪼개어 그릴 슬라이스 개수
+        const numSlices = 40; 
         const sliceH = waterH / numSlices;
 
         for (let i = 0; i < numSlices; i++) {
             let destY = HORIZON_Y + i * sliceH;
-            
-            // t: 지평선(0)에서 하단(1)까지의 진행도
-            let t = i / numSlices; 
-            
-            // 3D 깊이 좌표 z 산출 (아래로 올수록 가까워짐 -> z는 작아짐, 속도는 빨라짐)
-            let z = 1.0 / (t * 3.5 + 0.15); 
-            
-            // 텍스처 V (y) 오프셋 계산 (z에 반비례하고 stone.y에 비례하여 뿜어져 나오는 흐름 유도)
-            let texY = (z * 180 - stone.y * 1.5) % imgH;
+            let t = i / numSlices; // 0 ~ 1
+
+            // 💡 지수함수적 가로 스케일 인자 (wScale)
+            let wScale = Math.exp(t * 1.5); 
+
+            // 💡 이동 오프셋 연산 시 stone.y 진행 방향을 양수(+) 가속으로 동기화하고 스케일 곱하기 적용
+            let texY = (stone.y * 1.2 * wScale) % imgH;
             if (texY < 0) texY += imgH;
 
-            // 가로 사다리꼴 원근 스케일 (하단으로 갈수록 가로로 점차 넓어짐)
-            let wScale = 1.0 + t * 3.5; 
+            // 가로 사다리꼴 팽창
             let drawW = W * wScale;
             let drawX = W / 2 - drawW / 2;
 
-            // 래핑 슬라이스 드로잉
+            // 💡 세로 샘플링 영역을 wScale로 나누어 아래로 올수록 텍스처를 거대하게 지수 확대
+            let srcH = Math.max(1, sliceH / wScale);
             let srcY1 = texY;
-            let srcH1 = Math.min(sliceH, imgH - srcY1);
+            let srcH1 = Math.min(srcH, imgH - srcY1);
+            let srcH2 = srcH - srcH1;
 
-            bgCtx.drawImage(img3, 0, srcY1, img3.width, srcH1, drawX, destY, drawW, srcH1);
-            if (srcH1 < sliceH) {
-                let srcH2 = sliceH - srcH1;
-                bgCtx.drawImage(img3, 0, 0, img3.width, srcH2, drawX, destY + srcH1, drawW, srcH2);
+            // 래핑 슬라이스 비례 드로잉
+            bgCtx.drawImage(img3, 0, srcY1, img3.width, srcH1, drawX, destY, drawW, srcH1 * wScale);
+            if (srcH1 < srcH) {
+                bgCtx.drawImage(img3, 0, 0, img3.width, srcH2, drawX, destY + (srcH1 * wScale), drawW, sliceH - (srcH1 * wScale));
             }
         }
     }
