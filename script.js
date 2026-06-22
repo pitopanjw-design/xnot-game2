@@ -186,11 +186,16 @@ let startX = 0, startY = 0, startTime = 0;
 
 // 동적 수면 백드롭 이미지 프리 캐싱 레이어
 const BG_FILES = [
-    'images/river_sunset_bg.png', 'images/tropical_beach_bg.png', 'images/misty_lake_bg.png',
-    'images/milkyway_river_bg.png', 'images/autumn_valley_bg.png', 'images/neon_city_river_bg.png'
+    'images/milky_way01.png',
+    'images/milky_way02.png',
+    'images/milky_way03.png'
 ];
 const bgImgCache = {};
-BG_FILES.forEach(p => { const i=new Image(); i.src=p; bgImgCache[p]=i; });
+BG_FILES.forEach(p => {
+    const i = new Image();
+    i.src = p;
+    bgImgCache[p] = i;
+});
 let currentBgPath = BG_FILES[0];
 
 const RARITY_BG = { Ordinary: new Image(), Rare: new Image(), Legendary: new Image(), Mythic: new Image() };
@@ -462,7 +467,7 @@ function playSeamlessTransition() {
 // ===========================================================
 function startGameplay() {
     setStoneStyle();
-    const stoneEl = document.getElementById('stone-el');
+    const stoneEl = document.getElementById('ingame-stone');
     stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
     stoneEl.style.bottom = '80px'; stoneEl.style.top = 'auto';
     stoneEl.style.transform = 'translateX(-50%) scale(1)'; stoneEl.style.opacity = '1';
@@ -480,7 +485,7 @@ function startGameplay() {
 }
 
 function setStoneStyle() {
-    const el = document.getElementById('stone-el');
+    const el = document.getElementById('ingame-stone');
     const s  = selectedStone;
     el.style.width  = `${s.w}px`; el.style.height = `${s.h}px`;
     el.style.backgroundImage    = `url('${s.img}')`;
@@ -535,7 +540,7 @@ function startAngleGauge() {
 //  🤚 고속 스와이프 투척 메커니즘
 // ===========================================================
 function bindLaunchEvents() {
-    const el = document.getElementById('stone-el');
+    const el = document.getElementById('ingame-stone');
     el.addEventListener('mousedown', dragStart);
     el.addEventListener('touchstart', dragStart, {passive:false});
     window.addEventListener('mousemove', dragMove);
@@ -544,7 +549,7 @@ function bindLaunchEvents() {
     window.addEventListener('touchend', dragEnd);
 }
 function unbindLaunchEvents() {
-    const el = document.getElementById('stone-el');
+    const el = document.getElementById('ingame-stone');
     el.removeEventListener('mousedown', dragStart); el.removeEventListener('touchstart', dragStart);
     window.removeEventListener('mousemove', dragMove); window.removeEventListener('touchmove', dragMove);
     window.removeEventListener('mouseup', dragEnd); window.removeEventListener('touchend', dragEnd);
@@ -565,7 +570,7 @@ function dragMove(e) {
         if (!t) return; cx=t.clientX; cy=t.clientY;
     } else { cx=e.clientX; cy=e.clientY; }
     const dy=startY-cy, dx=cx-startX;
-    const el=document.getElementById('stone-el');
+    const el=document.getElementById('ingame-stone');
     el.style.transform=`translate(calc(-50% + ${dx}px), ${-Math.max(0,dy)}px) scale(${dy>0?1.05:1})`;
     if (dy>=150) triggerLaunch(150, dx);
     e.cancelable && e.preventDefault();
@@ -579,7 +584,7 @@ function dragEnd(e) {
     let cx,cy; if (e.changedTouches){cx=e.changedTouches[0].clientX;cy=e.changedTouches[0].clientY;} else{cx=e.clientX;cy=e.clientY;}
     const dy=startY-cy, dx=cx-startX;
     if (dy>15) triggerLaunch(dy,dx);
-    else { const el=document.getElementById('stone-el'); el.style.transition='transform 0.3s'; el.style.transform='translateX(-50%) scale(1)'; setTimeout(()=>el.style.transition='',350); }
+    else { const el=document.getElementById('ingame-stone'); el.style.transition='transform 0.3s'; el.style.transform='translateX(-50%) scale(1)'; setTimeout(()=>el.style.transition='',350); }
 }
 
 // ===========================================================
@@ -692,7 +697,7 @@ function updatePhysics() {
 }
 
 function applyStonePos() {
-    const el = document.getElementById('stone-el');
+    const el = document.getElementById('ingame-stone');
     const bounceOff = isDead ? stone.z*2 : stone.z * 1.8;
     const x = STONE_FIXED_X; const y = STONE_FIXED_Y - bounceOff;
 
@@ -716,8 +721,8 @@ function registerBounceTap(e) {
     // 돌이 상승 중일 때 탭하면 연타/스팸으로 간주하여 패널티를 부여하고 이번 주기의 탭 기회를 박탈
     if (stone.vz >= 0) {
         hasTappedBounce = true; // 플래그를 강제로 true로 묶어 연타 차단
-        stone.vy *= 0.45;       // 전진 속도(vy)를 0.45배 이하로 꺾음
-        stone.vz *= 0.45;
+        stone.vy *= 0.40;       // 전진 속도(vy)를 0.40배 이하로 꺾음
+        stone.vz *= 0.40;
         spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
         haptic('error');
         return;
@@ -725,8 +730,8 @@ function registerBounceTap(e) {
 
     // 이미 이번 낙하 주기에서 탭을 한 상태에서 또 탭한 경우 (연타 패널티)
     if (hasTappedBounce) {
-        stone.vy *= 0.45;       // 전진 속도(vy)를 0.45배 이하로 꺾음
-        stone.vz *= 0.45;
+        stone.vy *= 0.40;       // 전진 속도(vy)를 0.40배 이하로 꺾음
+        stone.vz *= 0.40;
         spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
         haptic('error');
         return;
@@ -738,10 +743,10 @@ function registerBounceTap(e) {
     const targetRingScale = 1.0 + stone.z / 30;
 
     let rating = 'BAD';
-    if (targetRingScale >= 0.95 && targetRingScale <= 1.05) {
+    if (targetRingScale >= 0.85 && targetRingScale <= 1.15) {
         rating = 'PERFECT';
     } else {
-        rating = 'BAD'; // 5% 오차범위 밖일 때 터치하면 패널티(BAD) 작동
+        rating = 'BAD'; // 15% 오차범위 밖일 때 터치하면 패널티(BAD) 작동
     }
 
     processBounce(rating, false);
@@ -806,8 +811,13 @@ function processBounce(rating, isAuto = false) {
 
     stone.z=0.1; stone.vz = (baseVz+zvB)*em*sbns*bdec;
     const vdec = Math.pow(sp.vyDecay||0.92, bounceCount-1);
-    const nvy = stone.vy * multEff * (1+(swipeSpeed*0.004)) * zM * vdec;
-    stone.vy = Math.min(nvy, stone.vy*Math.max(0.96,multEff*zM)*vdec); stone.vx *= 0.9;
+    if (rating === 'BAD') {
+        stone.vy *= 0.40;
+    } else {
+        const nvy = stone.vy * multEff * (1+(swipeSpeed*0.004)) * zM * vdec;
+        stone.vy = Math.min(nvy, stone.vy*Math.max(0.96,multEff*zM)*vdec);
+    }
+    stone.vx *= 0.9;
 
     hasTappedBounce = false;
     tapsInCurrentCycle = 0;
@@ -833,50 +843,47 @@ function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.01
 //  🖼️ 7 레이어 입체 2.5D 카메라 무한 원근 드로잉
 // ===========================================================
 function drawStaticBackground() {
-    const img = bgImgCache[currentBgPath];
-    if (img && img.complete) { bgCtx.drawImage(img, 0, 0, W, H); } 
-    else { bgCtx.fillStyle='#050510'; bgCtx.fillRect(0,0,W,H); }
+    bgCtx.clearRect(0,0,W,H);
+    const img1 = bgImgCache['images/milky_way01.png'];
+    const img2 = bgImgCache['images/milky_way02.png'];
+    const img3 = bgImgCache['images/milky_way03.png'];
+
+    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, H);
+    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, 0, W, H);
+    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, 0, W, H);
 }
 
 function draw7LayerBG() {
     bgCtx.clearRect(0,0,W,H);
-    const p = Math.min(layerProgress, 1.0); const vp = { x: W/2, y: HORIZON_Y }; const lobbyImg = bgImgCache[currentBgPath];
+    const vp = { x: W/2, y: HORIZON_Y };
+    const rarity = selectedStone?.rarity||'Ordinary';
 
-    const rarity = selectedStone?.rarity||'Ordinary'; const rarityBgImg = RARITY_BG[rarity];
-    if (rarityBgImg && rarityBgImg.complete) { bgCtx.drawImage(rarityBgImg, 0, 0, W, HORIZON_Y*1.1); } 
-    else {
-        const sg = bgCtx.createLinearGradient(0,0,0,HORIZON_Y); sg.addColorStop(0,'#010208'); sg.addColorStop(1,'#060d22');
-        bgCtx.fillStyle=sg; bgCtx.fillRect(0,0,W,HORIZON_Y);
+    const img1 = bgImgCache['images/milky_way01.png'];
+    const img2 = bgImgCache['images/milky_way02.png'];
+    const img3 = bgImgCache['images/milky_way03.png'];
+
+    // Layer 1: 하늘 (milky_way01) - 고정
+    if (img1 && img1.complete) {
+        bgCtx.drawImage(img1, 0, 0, W, H);
     }
 
-    LAYERS.slice(1).forEach((layer, idx)=>{
-        const parallax = layer.parallax; const zoomFactor = 1 + p * parallax * 5.5;
-        const baseBot = HORIZON_Y + (H-HORIZON_Y)*((idx+0.8)/7); const y = vp.y + (baseBot - vp.y);
+    // Layer 2: 산/섬 (milky_way02) - 속도 배율 0.1, Y축 wrap-around
+    if (img2 && img2.complete) {
+        let y2 = (stone.y * 0.1) % H;
+        if (y2 < 0) y2 += H;
+        bgCtx.drawImage(img2, 0, y2, W, H);
+        bgCtx.drawImage(img2, 0, y2 - H, W, H);
+    }
 
-        bgCtx.save(); bgCtx.translate(vp.x, vp.y); bgCtx.scale(zoomFactor, zoomFactor);
+    // Layer 3: 물 표면 (milky_way03) - 속도 배율 1.0, Y축 wrap-around 무한 루프
+    if (img3 && img3.complete) {
+        let y3 = stone.y % H;
+        if (y3 < 0) y3 += H;
+        bgCtx.drawImage(img3, 0, y3, W, H);
+        bgCtx.drawImage(img3, 0, y3 - H, W, H);
+    }
 
-        if (lobbyImg && lobbyImg.complete) {
-            const srcY = H*0.45; bgCtx.drawImage(lobbyImg, 0, srcY, W, H-srcY, -vp.x, 0, W, H-HORIZON_Y);
-        } else {
-            const wg = bgCtx.createLinearGradient(0,0,0,H-HORIZON_Y);
-            const colors = [ ['#061328','#020b1a'],['#051020','#010810'],['#040d1a','#010709'], ['#030a14','#010507'],['#020710','#010305'],['#010408','#000203'] ];
-            const c = colors[idx]||colors[0]; wg.addColorStop(0,c[0]); wg.addColorStop(1,c[1]);
-            bgCtx.fillStyle=wg; bgCtx.fillRect(-vp.x, 0, W, H-HORIZON_Y);
-        }
-        bgCtx.restore();
-
-        if (idx>=1) {
-            const lineAlpha = Math.min(1,(p*parallax+0.05)*(0.3+idx*0.05));
-            bgCtx.save(); bgCtx.translate(vp.x, vp.y); bgCtx.scale(zoomFactor, zoomFactor); bgCtx.beginPath();
-            bgCtx.moveTo(-W, y-vp.y); bgCtx.lineTo(W, y-vp.y);
-            let lc='rgba(255,255,255,'+lineAlpha*0.8+')';
-            if (rarity==='Rare') lc=`rgba(0,240,255,${lineAlpha})`;
-            else if (rarity==='Legendary') lc=`rgba(192,132,252,${lineAlpha})`;
-            else if (rarity==='Mythic') lc=`rgba(255,215,0,${lineAlpha})`;
-            bgCtx.strokeStyle=lc; bgCtx.lineWidth=1+idx*0.5; bgCtx.stroke(); bgCtx.restore();
-        }
-    });
-
+    // 수면 물결선 (rippleLayers) 렌더링
     rippleLayers.forEach(l=>{
         const rz = l.z; const lineY = HORIZON_Y + (H-HORIZON_Y)*Math.pow(rz,2.2); const hw = W*0.5*Math.pow(rz,1.4);
         let lAlpha = rz*0.18; if (rarity==='Rare') lAlpha=rz*0.25; else if (rarity==='Legendary') lAlpha=rz*0.28; else if (rarity==='Mythic') lAlpha=rz*0.35;
@@ -887,28 +894,12 @@ function draw7LayerBG() {
         bgCtx.strokeStyle=sc; bgCtx.lineWidth=0.5+rz*2.2; bgCtx.stroke();
     });
 
+    // 수동 수면 웨이크 (wakes) 렌더링
     wakes.forEach(w=>{
         bgCtx.save(); bgCtx.beginPath(); bgCtx.moveTo(w.x,w.y); bgCtx.lineTo(w.xL, w.y+(w.y-HORIZON_Y)*0.2);
         bgCtx.moveTo(w.x,w.y); bgCtx.lineTo(w.xR, w.y+(w.y-HORIZON_Y)*0.2);
         bgCtx.strokeStyle=`rgba(255,255,255,${w.alpha*0.8})`; bgCtx.lineWidth=w.width*w.alpha; bgCtx.lineCap='round'; bgCtx.stroke(); bgCtx.restore();
     });
-
-    const islandScale = Math.pow(p,3.0)*9+0.04;
-    bgCtx.save(); bgCtx.translate(vp.x, vp.y); bgCtx.scale(islandScale, islandScale); bgCtx.beginPath();
-    bgCtx.moveTo(-25,0); bgCtx.lineTo(-18,-2.5); bgCtx.lineTo(-10,-2); bgCtx.lineTo(-4,-7); bgCtx.lineTo(0,-8); bgCtx.lineTo(4,-7); bgCtx.lineTo(10,-2); bgCtx.lineTo(18,-2.5); bgCtx.lineTo(25,0); bgCtx.closePath();
-    const iGrad = bgCtx.createLinearGradient(0,-8,0,0);
-    if (rarity==='Mythic') { iGrad.addColorStop(0,'#451a03'); iGrad.addColorStop(1,'#030810'); }
-    else if (rarity==='Legendary') { iGrad.addColorStop(0,'#1e1b4b'); iGrad.addColorStop(1,'#030810'); }
-    else { iGrad.addColorStop(0,'#0d2b45'); iGrad.addColorStop(1,'#030810'); }
-    bgCtx.fillStyle=iGrad; bgCtx.fill();
-
-    bgCtx.beginPath(); bgCtx.moveTo(-2,-8); bgCtx.lineTo(2,-8); bgCtx.lineTo(0.5,-7.2); bgCtx.lineTo(-0.5,-7.2); bgCtx.closePath();
-    bgCtx.fillStyle = rarity==='Mythic'?'#ef4444':'#f59e0b'; bgCtx.fill(); bgCtx.restore();
-
-    const hzGrad = bgCtx.createLinearGradient(0,HORIZON_Y-8,0,HORIZON_Y+8); let hzC = 'rgba(255,255,255,0.14)';
-    if (rarity==='Rare') hzC='rgba(0,240,255,0.2)'; else if (rarity==='Legendary') hzC='rgba(192,132,252,0.22)'; else if (rarity==='Mythic') hzC='rgba(255,215,0,0.28)';
-    hzGrad.addColorStop(0,'transparent'); hzGrad.addColorStop(0.5,hzC); hzGrad.addColorStop(1,'transparent');
-    bgCtx.fillStyle=hzGrad; bgCtx.fillRect(0,HORIZON_Y-8,W,16);
 }
 
 // ===========================================================
@@ -943,70 +934,45 @@ function drawFxCanvas() {
     for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.update(); p.draw(fxCtx); if (p.alpha<=0) particles.splice(i,1); }
 
     if (currentStatus==='FLYING' && !isDead) {
-        const rarity = selectedStone?.rarity||'Ordinary'; const ax = STONE_FIXED_X, ay = STONE_FIXED_Y; const ang = (stone.y*0.07)%(Math.PI*2);
-        fxCtx.save(); fxCtx.translate(ax,ay); fxCtx.rotate(ang);
-
-        if (rarity==='Mythic') {
-            const g=fxCtx.createRadialGradient(0,0,10,0,0,80); g.addColorStop(0,'rgba(255,215,0,0.5)'); g.addColorStop(0.5,'rgba(249,115,22,0.25)'); g.addColorStop(1,'rgba(239,68,68,0)');
-            fxCtx.fillStyle=g; fxCtx.beginPath(); fxCtx.ellipse(0,0,70,32,Math.PI/6,0,Math.PI*2); fxCtx.fill();
-            fxCtx.strokeStyle='rgba(255,215,0,0.9)'; fxCtx.lineWidth=2.5; fxCtx.shadowBlur=12; fxCtx.shadowColor='#ffd700';
-            fxCtx.beginPath(); fxCtx.ellipse(0,0,55,25,-Math.PI/4,0,Math.PI*2); fxCtx.stroke();
-        } else if (rarity==='Legendary') {
-            const g=fxCtx.createRadialGradient(0,0,8,0,0,65); g.addColorStop(0,'rgba(192,132,252,0.5)'); g.addColorStop(0.6,'rgba(168,85,247,0.2)'); g.addColorStop(1,'rgba(59,130,246,0)');
-            fxCtx.fillStyle=g; fxCtx.beginPath(); fxCtx.ellipse(0,0,60,28,Math.PI/6,0,Math.PI*2); fxCtx.fill();
-        } else if (rarity==='Rare') {
-            fxCtx.strokeStyle='rgba(0,240,255,0.8)'; fxCtx.lineWidth=2; fxCtx.shadowBlur=8; fxCtx.shadowColor='#00f0ff';
-            fxCtx.beginPath(); fxCtx.arc(0,0,38,0,Math.PI*2); fxCtx.stroke();
-            const sx=Math.cos(ang*2.5)*38, sy=Math.sin(ang*2.5)*38; fxCtx.fillStyle='#00f0ff'; fxCtx.beginPath(); fxCtx.arc(sx,sy,4,0,Math.PI*2); fxCtx.fill();
-        } else {
-            fxCtx.strokeStyle='rgba(255,255,255,0.45)'; fxCtx.lineWidth=1.5; fxCtx.beginPath(); fxCtx.arc(0,0,32,0,Math.PI*2); fxCtx.stroke();
-        }
-        fxCtx.restore();
-    }
-
-    if (currentStatus==='FLYING' && !isDead && stone.vz<0 && stone.z<=30) {
-        const scale = 1.0 + stone.z / 30;
         const s = selectedStone || STONES[0];
-        
         const rxRef = s.w / 2;
-        const ryRef = s.h / 2;
-        
-        const rxTiming = rxRef * scale;
-        const ryTiming = ryRef * scale;
+        const ryRef = (s.w / 2) * 0.4;
 
         fxCtx.save();
-        
         // 1. 기준 타겟 원 그리기 (돌 아래 수면 고정 좌표)
         fxCtx.beginPath();
         fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxRef, ryRef, 0, 0, Math.PI * 2);
         fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
         fxCtx.lineWidth = 2;
         fxCtx.stroke();
-
-        // 2. 수축하는 타이밍 원 그리기
-        fxCtx.beginPath();
-        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxTiming, ryTiming, 0, 0, Math.PI * 2);
-
-        if (scale >= 0.95 && scale <= 1.10) { // PERFECT 임박(1.10 이하)할 때부터 녹색(var(--neon-lime))
-            const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
-            fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.2)';
-            fxCtx.lineWidth = 3.5;
-            fxCtx.shadowBlur = 12;
-            fxCtx.shadowColor = 'var(--neon-lime)';
-        } else if ((scale >= 0.80 && scale <= 0.94) || (scale >= 1.11 && scale <= 1.20)) {
-            fxCtx.strokeStyle = '#ffd700'; // Gold
-            fxCtx.lineWidth = 2.5;
-            fxCtx.shadowBlur = 6;
-            fxCtx.shadowColor = '#ffd700';
-        } else {
-            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-            fxCtx.lineWidth = 1.5;
-            fxCtx.shadowBlur = 0;
-            fxCtx.setLineDash([4, 4]);
-        }
-
-        fxCtx.stroke();
         fxCtx.restore();
+
+        // 2. 돌이 낙하할 때 외부에서 이 과녁을 향해 수축하는 동적 타이밍 원 그리기
+        if (stone.vz < 0) {
+            const scale = 1.0 + stone.z / 30;
+            const rxTiming = rxRef * scale;
+            const ryTiming = ryRef * scale;
+
+            fxCtx.save();
+            fxCtx.beginPath();
+            fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxTiming, ryTiming, 0, 0, Math.PI * 2);
+
+            if (scale >= 0.85 && scale <= 1.15) { // PERFECT 오차 15% 내외
+                const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
+                fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.2)';
+                fxCtx.lineWidth = 3.5;
+                fxCtx.shadowBlur = 12;
+                fxCtx.shadowColor = 'var(--neon-lime)';
+            } else {
+                fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                fxCtx.lineWidth = 1.5;
+                fxCtx.shadowBlur = 0;
+                fxCtx.setLineDash([4, 4]);
+            }
+
+            fxCtx.stroke();
+            fxCtx.restore();
+        }
     }
 }
 
@@ -1103,7 +1069,7 @@ function spawnBounceMarker(x,y,count) {
 function endGame() {
     isPlaying=false; cancelAnimationFrame(animFrameId);
     document.getElementById('game-container').removeEventListener('mousedown',registerBounceTap); document.getElementById('game-container').removeEventListener('touchstart',registerBounceTap);
-    document.getElementById('stone-el').style.display='none'; fxCtx.clearRect(0,0,W,H);
+    document.getElementById('ingame-stone').style.display='none'; fxCtx.clearRect(0,0,W,H);
 
     const earnedSP = Math.round(((bounceCount*100)+(perfectCount*150))*selectedStone.mult);
     document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey); document.getElementById('res-stone-name').style.color = selectedStone.color;
