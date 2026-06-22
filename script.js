@@ -840,65 +840,93 @@ function triggerWaterSink() {
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
 
 // ===========================================================
-//  🖼️ 7 레이어 입체 2.5D 카메라 무한 원근 드로잉
+//  🖼️ [Gem 직접 코딩] 3단 입체 패럴랙스 무한 원근 스크롤러 엔진
 // ===========================================================
 function drawStaticBackground() {
-    bgCtx.clearRect(0,0,W,H);
+    bgCtx.clearRect(0, 0, W, H);
     const img1 = bgImgCache['images/milky_way01.png'];
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, H);
-    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, 0, W, H);
-    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, 0, W, H);
+    // 로비/대기 화면 상태일 때는 지평선(HORIZON_Y) 기준으로 3대 레이어를 정렬하여 배치
+    if (img1 && img1.complete) bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
+    if (img2 && img2.complete) bgCtx.drawImage(img2, 0, HORIZON_Y - (W * 0.25), W, W * 0.25);
+    if (img3 && img3.complete) bgCtx.drawImage(img3, 0, HORIZON_Y, W, H - HORIZON_Y);
 }
 
 function draw7LayerBG() {
-    bgCtx.clearRect(0,0,W,H);
-    const vp = { x: W/2, y: HORIZON_Y };
-    const rarity = selectedStone?.rarity||'Ordinary';
+    bgCtx.clearRect(0, 0, W, H);
+    const vp = { x: W / 2, y: HORIZON_Y };
+    const rarity = selectedStone?.rarity || 'Ordinary';
 
     const img1 = bgImgCache['images/milky_way01.png'];
     const img2 = bgImgCache['images/milky_way02.png'];
     const img3 = bgImgCache['images/milky_way03.png'];
 
-    // Layer 1: 하늘 (milky_way01) - 고정
+    // 🌌 Layer 1: 은하수 하늘 (milky_way01) -> 지평선 위쪽 하늘 영역에 굳건히 고정
     if (img1 && img1.complete) {
-        bgCtx.drawImage(img1, 0, 0, W, H);
+        bgCtx.drawImage(img1, 0, 0, W, HORIZON_Y);
     }
 
-    // Layer 2: 산/섬 (milky_way02) - 속도 배율 0.1, Y축 wrap-around
+    // ⛰️ Layer 2: 먼 산/바위 섬 (milky_way02) -> 돌의 속도에 비례해 아주 미세하게 아래로 패럴랙스 무브
     if (img2 && img2.complete) {
-        let y2 = (stone.y * 0.1) % H;
-        if (y2 < 0) y2 += H;
-        bgCtx.drawImage(img2, 0, y2, W, H);
-        bgCtx.drawImage(img2, 0, y2 - H, W, H);
+        const mountainH = W * 0.25; // 원근 비율에 맞춘 산 레이어 고유 높이
+        // 돌이 전진함에 따라 지평선 밑으로 아스라이 밀려나는 0.08배속 미세 스크롤 연산
+        let y2 = (HORIZON_Y - mountainH) + (stone.y * 0.08);
+        
+        // 산이 하늘 위로 역행하거나 과도하게 내려가지 않도록 지평선 경계면에 소프트 고정 가두기 보정
+        if (y2 > HORIZON_Y) y2 = HORIZON_Y; 
+        bgCtx.drawImage(img2, 0, y2, W, mountainH);
     }
 
-    // Layer 3: 물 표면 (milky_way03) - 속도 배율 1.0, Y축 wrap-around 무한 루프
+    // 🌊 Layer 3: 강물 표면 (milky_way03) -> 지평선 아래 공간(하단부 전체)을 무한 심리스 루프로 초고속 래핑 스크롤
     if (img3 && img3.complete) {
-        let y3 = stone.y % H;
-        if (y3 < 0) y3 += H;
-        bgCtx.drawImage(img3, 0, y3, W, H);
-        bgCtx.drawImage(img3, 0, y3 - H, W, H);
+        const waterH = H - HORIZON_Y; // 실시간 강물 영역 전체 높이
+        let y3 = (stone.y * 1.0) % waterH; // 전진 마찰 속도 1:1 동기화
+        if (y3 < 0) y3 += waterH;
+
+        // 끊김 현상(구멍)을 완벽 차단하기 위한 상하 2중 바운드 타일링 렌더링
+        bgCtx.drawImage(img3, 0, HORIZON_Y + y3, W, waterH);
+        bgCtx.drawImage(img3, 0, HORIZON_Y + y3 - waterH, W, waterH);
     }
 
     // 수면 물결선 (rippleLayers) 렌더링
-    rippleLayers.forEach(l=>{
-        const rz = l.z; const lineY = HORIZON_Y + (H-HORIZON_Y)*Math.pow(rz,2.2); const hw = W*0.5*Math.pow(rz,1.4);
-        let lAlpha = rz*0.18; if (rarity==='Rare') lAlpha=rz*0.25; else if (rarity==='Legendary') lAlpha=rz*0.28; else if (rarity==='Mythic') lAlpha=rz*0.35;
+    rippleLayers.forEach(l => {
+        const rz = l.z; 
+        const lineY = HORIZON_Y + (H - HORIZON_Y) * Math.pow(rz, 2.2); 
+        const hw = W * 0.5 * Math.pow(rz, 1.4);
+        let lAlpha = rz * 0.18; 
+        if (rarity === 'Rare') lAlpha = rz * 0.25; 
+        else if (rarity === 'Legendary') lAlpha = rz * 0.28; 
+        else if (rarity === 'Mythic') lAlpha = rz * 0.35;
 
-        bgCtx.beginPath(); bgCtx.moveTo(vp.x-hw, lineY); bgCtx.lineTo(vp.x+hw, lineY);
-        let sc='rgba(255,255,255,'+lAlpha+')';
-        if (rarity==='Rare') sc=`rgba(0,240,255,${lAlpha})`; else if (rarity==='Legendary') sc=`rgba(192,132,252,${lAlpha})`; else if (rarity==='Mythic') sc=`rgba(255,215,0,${lAlpha})`;
-        bgCtx.strokeStyle=sc; bgCtx.lineWidth=0.5+rz*2.2; bgCtx.stroke();
+        bgCtx.beginPath(); 
+        bgCtx.moveTo(vp.x - hw, lineY); 
+        bgCtx.lineTo(vp.x + hw, lineY);
+        
+        let sc = 'rgba(255,255,255,' + lAlpha + ')';
+        if (rarity === 'Rare') sc = `rgba(0,240,255,${lAlpha})`; 
+        else if (rarity === 'Legendary') sc = `rgba(192,132,252,${lAlpha})`; 
+        else if (rarity === 'Mythic') sc = `rgba(255,215,0,${lAlpha})`;
+        
+        bgCtx.strokeStyle = sc; 
+        bgCtx.lineWidth = 0.5 + rz * 2.2; 
+        bgCtx.stroke();
     });
 
     // 수동 수면 웨이크 (wakes) 렌더링
-    wakes.forEach(w=>{
-        bgCtx.save(); bgCtx.beginPath(); bgCtx.moveTo(w.x,w.y); bgCtx.lineTo(w.xL, w.y+(w.y-HORIZON_Y)*0.2);
-        bgCtx.moveTo(w.x,w.y); bgCtx.lineTo(w.xR, w.y+(w.y-HORIZON_Y)*0.2);
-        bgCtx.strokeStyle=`rgba(255,255,255,${w.alpha*0.8})`; bgCtx.lineWidth=w.width*w.alpha; bgCtx.lineCap='round'; bgCtx.stroke(); bgCtx.restore();
+    wakes.forEach(w => {
+        bgCtx.save(); 
+        bgCtx.beginPath(); 
+        bgCtx.moveTo(w.x, w.y); 
+        bgCtx.lineTo(w.xL, w.y + (w.y - HORIZON_Y) * 0.2);
+        bgCtx.moveTo(w.x, w.y); 
+        bgCtx.lineTo(w.xR, w.y + (w.y - HORIZON_Y) * 0.2);
+        bgCtx.strokeStyle = `rgba(255,255,255,${w.alpha * 0.8})`; 
+        bgCtx.lineWidth = w.width * w.alpha; 
+        bgCtx.lineCap = 'round'; 
+        bgCtx.stroke(); 
+        bgCtx.restore();
     });
 }
 
