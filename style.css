@@ -434,7 +434,7 @@ body, html {
 ============================ */
 #intro-screen {
     position: absolute; inset: 0; background: url('images/intro_bg.png') no-repeat center/cover; z-index: 380;
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 8%; transition: opacity 0.5s;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.5s;
 }
 .intro-btn-group { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 80%; max-width: 300px; }
 .intro-btn-group .main-action {
