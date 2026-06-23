@@ -470,6 +470,9 @@ function playSeamlessTransition() {
 //  🕹️ 인게임 진입 및 조작 인터페이스 활성화
 // ===========================================================
 function startGameplay() {
+    fxCtx.clearRect(0, 0, W, H);
+    particles = [];
+    wakes = [];
     setStoneStyle();
     const stoneEl = document.getElementById('ingame-stone');
     stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
