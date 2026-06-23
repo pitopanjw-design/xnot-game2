@@ -580,12 +580,24 @@ function setStoneStyle() {
 // ===========================================================
 //  📐 삼각함수 보정 각도 피치 게이지
 // ===========================================================
-function getAngleZone(angle) {
-    const sr = (2+upgrades.spin*0.8)*(2/3);
-    const remH = 15-sr; const safeR = remH*0.6, redR = remH*0.4;
-    if (angle>=20-sr && angle<=20+sr) return 'PERFECT';
-    if ((angle>=5+redR && angle<20-sr)||(angle>20+sr && angle<=20+sr+safeR)) return 'SAFETY';
-    return 'RED';
+function getAngleZone(angleVal) {
+    const perfSize = Math.min(0.10, 0.05 + ((upgrades.perfectZone || 0) * 0.005));
+    const pMin = 0.5 - (perfSize / 2);
+    const pMax = 0.5 + (perfSize / 2);
+
+    if ((angleVal >= 0.00 && angleVal <= 0.01) || (angleVal >= 0.99 && angleVal <= 1.00)) {
+        return 'EASTEREG';
+    }
+    if ((angleVal > 0.01 && angleVal <= 0.06) || (angleVal >= 0.94 && angleVal < 0.99)) {
+        return 'RED';
+    }
+    if (angleVal >= pMin && angleVal <= pMax) {
+        return 'PERFECT';
+    }
+    if ((angleVal >= pMin - 0.15 && angleVal < pMin) || (angleVal > pMax && angleVal <= pMax + 0.15)) {
+        return 'GREEN';
+    }
+    return 'YELLOW';
 }
 
 function updateGaugePerfectZone() {
@@ -684,7 +696,7 @@ function triggerLaunch(dy, dx) {
     stone.vz = (swipeSpeed*Math.sin(rad)*0.75)*distFact;
     stone.vx = ((dx/dur)*2)*distFact;
 
-    const zone = getAngleZone(launchAngle);
+    const zone = getAngleZone(angleVal);
 
     let ap=null, isCrit=false, isLotto=false; const ss = selectedStone;
     if (ss.rarity==='Mythic') {
@@ -711,18 +723,42 @@ function triggerLaunch(dy, dx) {
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
 
     SoundManager.playLaunch(swipeSpeed);
-    if (swipeSpeed>=30) {
-        document.getElementById('message').innerText = `⚡ ${t('lightningLaunch')} ⚡`;
-        spawnDramaticText(t('lightningLaunch'), 'neon-gold'); triggerShake('heavy');
+
+    let mult = 1.0;
+    if (zone === 'EASTEREG') {
+        mult = 2.0;
+        document.getElementById('message').innerText = "⚡ 하이퍼 드라이브 발사! ⚡";
+        spawnDramaticText("HYPER DRIVE!", 'neon-gold');
+        triggerShake('heavy');
+
+        const flash = document.createElement('div');
+        flash.style.cssText = 'position:absolute;inset:0;background:rgba(255,215,0,0.4);z-index:250;pointer-events:none;animation:fade-flash 0.5s ease forwards;';
+        document.getElementById('game-container').appendChild(flash);
+        const style = document.createElement('style');
+        style.textContent = '@keyframes fade-flash{from{opacity:1}to{opacity:0}}';
+        document.head.appendChild(style);
+        setTimeout(() => { flash.remove(); style.remove(); }, 520);
     } else if (zone === 'PERFECT') {
+        mult = 1.5;
         document.getElementById('message').innerText = "✨ PERFECT LAUNCH! ✨";
-        spawnDramaticText("PERFECT LAUNCH!", 'neon-lime'); triggerShake('medium');
-    } else if (zone === 'SAFETY') {
-        document.getElementById('message').innerText = "👍 안정적인 발사";
+        spawnDramaticText("PERFECT LAUNCH!", 'neon-lime');
+        triggerShake('medium');
+    } else if (zone === 'GREEN') {
+        mult = 1.2;
+        document.getElementById('message').innerText = "👍 안정적인 그린 발사";
         haptic('medium');
+    } else if (zone === 'RED') {
+        mult = 0.0;
+        document.getElementById('message').innerText = "❌ MISS! 투척 실패";
+        haptic('error');
     } else {
-        document.getElementById('message').innerText = t('normalLaunch'); haptic('medium');
+        mult = 1.0;
+        document.getElementById('message').innerText = t('normalLaunch');
+        haptic('medium');
     }
+
+    stone.vy *= mult;
+    stone.vz *= mult;
 
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, {passive:true});
