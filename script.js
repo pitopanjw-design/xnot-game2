@@ -470,9 +470,6 @@ function playSeamlessTransition() {
 //  🕹️ 인게임 진입 및 조작 인터페이스 활성화
 // ===========================================================
 function startGameplay() {
-    fxCtx.clearRect(0, 0, W, H);
-    particles = [];
-    wakes = [];
     setStoneStyle();
     const stoneEl = document.getElementById('ingame-stone');
     stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
@@ -1130,9 +1127,17 @@ function spawnBounceMarker(x,y,count) {
 //  🏁 채굴 결과 정산 및 게임 루프 종료
 // ===========================================================
 function endGame() {
-    isPlaying=false; cancelAnimationFrame(animFrameId);
-    document.getElementById('game-container').removeEventListener('mousedown',registerBounceTap); document.getElementById('game-container').removeEventListener('touchstart',registerBounceTap);
-    document.getElementById('ingame-stone').style.display='none'; fxCtx.clearRect(0,0,W,H);
+    isPlaying = false;
+    cancelAnimationFrame(animFrameId);
+    
+    // 게임 종료 즉시 화면의 모든 동적 이펙트 객체를 흔적도 없이 소멸
+    fxCtx.clearRect(0, 0, W, H);
+    particles = [];
+    wakes = [];
+
+    document.getElementById('game-container').removeEventListener('mousedown', registerBounceTap);
+    document.getElementById('game-container').removeEventListener('touchstart', registerBounceTap);
+    document.getElementById('ingame-stone').style.display = 'none';
 
     const earnedSP = Math.round(((bounceCount*100)+(perfectCount*150))*selectedStone.mult);
     document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey); document.getElementById('res-stone-name').style.color = selectedStone.color;
