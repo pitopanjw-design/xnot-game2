@@ -906,7 +906,7 @@ function draw7LayerBG() {
     // ⛰️ [Layer 2: 중간 레이어] 'images/midground_lake.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 거리(stone.y)에 비례하여 미세 팽창
     bgCtx.save();
     if (imgMid && imgMid.complete) {
-        const midScale = Math.min(1.4, 1.0 + (stone.y * 0.00018));
+        const midScale = Math.min(1.3, 1.0 + (stone.y * 0.00012));
         drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, midScale);
     }
     bgCtx.restore();
@@ -914,7 +914,7 @@ function draw7LayerBG() {
     // 🌊 [Layer 3: 최상단 전경 - 터널 가속도 핵심] 'images/foreground_lake.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 속도(stone.vy)와 누적 거리(stone.y)를 조합하여 실시간 확대 스케일값을 구함
     bgCtx.save();
     if (imgFore && imgFore.complete) {
-        const fgScale = 1.0 + ((stone.y * 0.045) + (stone.vy * 0.15)) % 3.5;
+        const fgScale = 1.0 + (stone.y * 0.015) % 2.5;
         // drawScaledCenteredCoverImage가 내부적으로 translate(W/2, H/2), scale(fgScale, fgScale) 및 중심점 정렬 그리기를 처리함
         drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, fgScale);
     }
