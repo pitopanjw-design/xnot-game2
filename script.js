@@ -104,6 +104,23 @@ const SoundManager = {
         this.resume();
         const notes=[261,329,392,523,659,784];
         notes.forEach((f,i)=>setTimeout(()=>this._play(f,'triangle',0.4,0.12),i*70));
+    },
+    pauseAll() {
+        if (this.bgm) {
+            this.bgm.pause();
+        }
+        if (this.ctx && this.ctx.state !== 'suspended') {
+            this.ctx.suspend();
+        }
+    },
+    resumeAll() {
+        if (this.isMuted === true) return;
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+        if (this.bgm && this.bgm.paused) {
+            this.bgm.play().catch(e => {});
+        }
     }
 };
 
@@ -1297,3 +1314,11 @@ function closeIntroScreen(e) { e?.preventDefault(); SoundManager.resume(); hapti
 function initDebugParams() { try { const p=new URLSearchParams(window.location.search); window.debug=p.get('debug')==='true'; window.forceCrit=p.get('forceCrit')==='true'; window.forceLotto=p.get('forceLotto')==='true'; } catch(e){} }
 
 initDebugParams(); initTMA(); initLang(); loadData(); applyI18n(); changeRandomBg(); drawStaticBackground();
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        SoundManager.pauseAll();
+    } else {
+        SoundManager.resumeAll();
+    }
+});
