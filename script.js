@@ -875,9 +875,9 @@ function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
 
 function drawStaticBackground() {
     bgCtx.clearRect(0, 0, W, H);
-    const imgBase = bgImgCache['images/foreground.png']?.complete ? bgImgCache['images/foreground.png'] : bgImgCache['images/foreground_lake.png'];
-    const imgMid  = bgImgCache['images/midground.png']?.complete ? bgImgCache['images/midground.png'] : bgImgCache['images/midground_lake.png'];
-    const imgFore = bgImgCache['images/background.png']?.complete ? bgImgCache['images/background.png'] : bgImgCache['images/background_lake.png'];
+    const imgBase = bgImgCache['images/background_lake.png'];
+    const imgMid  = bgImgCache['images/midground_lake.png'];
+    const imgFore = bgImgCache['images/foreground_lake.png'];
 
     // 로비 대기 화면: 화면 정중앙(W/2, H/2) 소실점 기준 찌그러짐 없이 화면 전체 크기에 예쁘게 겹쳐 드로잉
     if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
@@ -892,26 +892,33 @@ function draw7LayerBG() {
     const vp = { x: W / 2, y: HORIZON_Y };
     const rarity = selectedStone?.rarity || 'Ordinary';
 
-    const imgBase = bgImgCache['images/foreground.png']?.complete ? bgImgCache['images/foreground.png'] : bgImgCache['images/foreground_lake.png'];
-    const imgMid  = bgImgCache['images/midground.png']?.complete ? bgImgCache['images/midground.png'] : bgImgCache['images/midground_lake.png'];
-    const imgFore = bgImgCache['images/background.png']?.complete ? bgImgCache['images/background.png'] : bgImgCache['images/background_lake.png'];
+    const imgBase = bgImgCache['images/background_lake.png'];
+    const imgMid  = bgImgCache['images/midground_lake.png'];
+    const imgFore = bgImgCache['images/foreground_lake.png'];
 
-    // 🌌 Layer 1: 최하단 베이스 -> 'images/foreground.png' 이미지를 화면 정중앙 소실점 기준으로 고정 렌더링 (스케일 변화 없음)
+    // 🌌 [Layer 1: 최하단 베이스] 'images/background_lake.png' 이미지를 화면 정중앙(W/2, H/2) 소실점 기준으로 화면 전체에 고정 렌더링 (스케일 변화 없음)
+    bgCtx.save();
     if (imgBase && imgBase.complete) {
         drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     }
+    bgCtx.restore();
 
-    // ⛰️ Layer 2: 중간 레이어 -> 'images/midground.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진에 따라 미세 팽창
+    // ⛰️ [Layer 2: 중간 레이어] 'images/midground_lake.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 거리(stone.y)에 비례하여 미세 팽창
+    bgCtx.save();
     if (imgMid && imgMid.complete) {
         const midScale = 1.0 + (stone.y * 0.002) % 0.2;
         drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, midScale);
     }
+    bgCtx.restore();
 
-    // 🌊 Layer 3: 최상단 전경 (터널 가속도 핵심) -> 'images/background.png' 이미지를 방사형 스케일 팽창 루핑으로 렌더링
+    // 🌊 [Layer 3: 최상단 전경 - 터널 가속도 핵심] 'images/foreground_lake.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 속도(stone.vy)와 누적 거리(stone.y)를 조합하여 실시간 확대 스케일값을 구함
+    bgCtx.save();
     if (imgFore && imgFore.complete) {
         const fgScale = 1.0 + (stone.y * 0.015) % 2.5;
+        // drawScaledCenteredCoverImage가 내부적으로 translate(W/2, H/2), scale(fgScale, fgScale) 및 중심점 정렬 그리기를 처리함
         drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, fgScale);
     }
+    bgCtx.restore();
 
     // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
     rippleLayers.forEach(l => {
@@ -923,6 +930,7 @@ function draw7LayerBG() {
         else if (rarity === 'Legendary') lAlpha = rz * 0.28; 
         else if (rarity === 'Mythic') lAlpha = rz * 0.35;
 
+        bgCtx.save();
         bgCtx.beginPath(); 
         bgCtx.moveTo(vp.x - hw, lineY); 
         bgCtx.lineTo(vp.x + hw, lineY);
@@ -935,6 +943,7 @@ function draw7LayerBG() {
         bgCtx.strokeStyle = sc; 
         bgCtx.lineWidth = 0.5 + rz * 2.2; 
         bgCtx.stroke();
+        bgCtx.restore();
     });
 
     // 수동 수면 웨이크 (wakes) 렌더링
