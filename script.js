@@ -771,7 +771,7 @@ function processBounce(rating, isAuto = false) {
     else if (rarity==='Legendary') triggerShake('medium');
     else if (rarity==='Rare') triggerShake('light');
 
-    let pCount = rarity==='Mythic'?40 : rarity==='Legendary'?60 : rarity==='Rare'?35 : 22;
+    let pCount = rarity==='Mythic'?13 : rarity==='Legendary'?60 : rarity==='Rare'?35 : 22;
     let baseVz=0, multEff=1;
 
     if (rating==='PERFECT') {
@@ -1103,7 +1103,7 @@ class GodSplashParticle {
 }
 
 function spawnGodSplash(x,y) {
-    const count = 66; for (let i=0;i<count;i++) { const p=new GodSplashParticle(x,y); p.vx = (Math.random()-0.5)*W*0.06; p.vy = -Math.random()*H*0.025 - 5; particles.push(p); }
+    const count = 22; for (let i=0;i<count;i++) { const p=new GodSplashParticle(x,y); p.vx = (Math.random()-0.5)*W*0.06; p.vy = -Math.random()*H*0.025 - 5; particles.push(p); }
     const flash=document.createElement('div'); flash.style.cssText='position:absolute;inset:0;background:rgba(255,215,0,0.35);z-index:250;pointer-events:none;animation:fade-flash 0.4s ease forwards;'; document.getElementById('game-container').appendChild(flash);
     const style=document.createElement('style'); style.textContent='@keyframes fade-flash{from{opacity:1}to{opacity:0}}'; document.head.appendChild(style);
     setTimeout(()=>{ flash.remove(); style.remove(); }, 420);
