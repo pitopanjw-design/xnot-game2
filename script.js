@@ -3,7 +3,7 @@
 //  🔊 Web Audio API 오디오 시스템
 // ===========================================================
 const SoundManager = {
-    ctx: null, masterGain: null, isMuted: false,
+    ctx: null, masterGain: null, isMuted: false, bgm: null, bgmGain: null,
     init() {
         if (this.ctx) return;
         try {
@@ -14,14 +14,41 @@ const SoundManager = {
             const saved = localStorage.getItem('xnot_mute');
             this.isMuted = saved === 'true';
             this.masterGain.gain.value = this.isMuted ? 0 : 0.6;
+
+            // BGM 오디오 객체 동적 생성 및 노드 연동
+            this.bgm = new Audio('audio/bgm_lobby.mp3');
+            this.bgm.loop = true;
+            this.bgmGain = this.ctx.createGain();
+            this.bgmGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+            const bgmSource = this.ctx.createMediaElementSource(this.bgm);
+            bgmSource.connect(this.bgmGain);
+            this.bgmGain.connect(this.masterGain);
+
+            if (!this.isMuted) {
+                this.bgm.play().catch(e => {});
+            }
+
             this.updateMuteUI();
         } catch(e) {}
     },
-    resume() { this.init(); if (this.ctx && this.ctx.state==='suspended') this.ctx.resume(); },
+    resume() {
+        this.init();
+        if (this.ctx && this.ctx.state==='suspended') this.ctx.resume();
+        if (this.bgm && !this.isMuted && this.bgm.paused) {
+            this.bgm.play().catch(e => {});
+        }
+    },
     setMute(v) {
         this.isMuted = v;
         localStorage.setItem('xnot_mute', v);
         if (this.masterGain && this.ctx) this.masterGain.gain.setValueAtTime(v?0:0.6, this.ctx.currentTime);
+        if (this.bgm) {
+            if (v) {
+                this.bgm.pause();
+            } else {
+                this.bgm.play().catch(e => {});
+            }
+        }
         this.updateMuteUI();
     },
     updateMuteUI() { const b = document.getElementById('mute-btn'); if (b) b.innerText = this.isMuted ? '🔇' : '🔊'; },
@@ -41,8 +68,35 @@ const SoundManager = {
     playLaunch(s) { this.resume(); this._play(240+s*10,'triangle',0.28,0.4,55); },
     playBounce(p) {
         this.resume();
-        if (p) { [880,1320,1760].forEach((f,i)=>this._play(f,'sine',0.5,0.2/(i+1))); }
-        else    { this._play(140,'sine',0.13,0.35,400); }
+        const stone = selectedStone || { id: 1, rarity: 'Rare' };
+        const stoneId = stone.id;
+
+        if (stoneId === 0) {
+            // [0번 슬레이트]: 주파수대를 높게 잡고(800~1200Hz) triangle 파형으로 가볍고 빠르게 스치는 소리
+            const freq = p ? 1100 : 900;
+            const dur = p ? 0.08 : 0.05;
+            this._play(freq, 'triangle', dur, p ? 0.25 : 0.15, p ? 800 : 700);
+        } else if (stoneId === 1) {
+            // [1번 조약돌]: 순정 sine 파형의 경쾌한 중주파 바운스 음 유지
+            if (p) {
+                [880,1320,1760].forEach((f,i)=>this._play(f,'sine',0.5,0.2/(i+1)));
+            } else {
+                this._play(140,'sine',0.13,0.35,400);
+            }
+        } else if (stoneId === 2) {
+            // [2번 현무암]: 주파수 시작점을 낮게 잡고(120~250Hz), 두꺼운 triangle 또는 sawtooth 파형을 짧게 결합하여 쾅 튀는 베이스 톤
+            const startFreq = p ? 200 : 160;
+            const dur = p ? 0.15 : 0.11;
+            const vol = p ? 0.45 : 0.35;
+            this._play(startFreq, 'sawtooth', dur, vol, startFreq - 100);
+            this._play(startFreq - 40, 'triangle', dur + 0.03, vol * 0.7, startFreq - 120);
+        } else if (stoneId === 3) {
+            // [3번 황금운석]: 기존의 3중 화음(880, 1320, 1760Hz) sine 탑 쌓기 구조 고수
+            const volMult = p ? 1.5 : 0.8;
+            [880, 1320, 1760].forEach((f, i) => {
+                this._play(f, 'sine', p ? 0.5 : 0.3, (0.2 / (i + 1)) * volMult);
+            });
+        }
     },
     playSink() { this.resume(); for(let i=0;i<3;i++) { const d=i*0.08; setTimeout(()=>this._play(180-i*35,'sine',0.14,0.25,40),d*1000); } },
     playUpgrade() { this.resume(); this._play(523,'sine',0.12,0.15); setTimeout(()=>this._play(659,'sine',0.18,0.15),100); },
