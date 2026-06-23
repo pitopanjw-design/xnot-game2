@@ -630,7 +630,7 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
-    particles = []; wakes = []; for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
+    for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
 
     currentStatus = 'FLYING'; isPlaying = true;
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
