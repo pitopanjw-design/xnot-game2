@@ -896,31 +896,32 @@ function draw7LayerBG() {
     const imgMid  = bgImgCache['images/midground_lake.png'];
     const imgFore = bgImgCache['images/foreground_lake.png'];
 
-    // 🌌 [Layer 1: 최하단 베이스] 고정 우주 밤하늘/호수 원경 -> 소실점 중심축 고정 (스케일 1.0)
+    // 🌌 [Layer 1: 최하단 베이스] 호수 원경 및 밤하늘 고정 (스케일 1.0)
     if (imgBase && imgBase.complete) {
         drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     }
 
-    // ⛰️ [Layer 2: 중간 레이어] 산/섬 -> 리셋(축소) 없이 누적 거리에 따라 은은하게 단방향 팽창 확대
+    // ⛰️ [Layer 2: 중간 레이어] 산/섬 -> 누적 거리에 따라 은은하게 단방향 팽창 확대 (후진 없음)
     if (imgMid && imgMid.complete) {
-        // stone.y 기반의 초정밀 댐핑 필터링으로 1.0에서 최대 1.2까지 리셋 없이 아스라이 전진
-        const midScale = Math.min(1.20, 1.0 + (stone.y * 0.00004));
+        // stone.y가 증가함에 따라 절대 뒤로 밀리지 않고 아주 미세하게만 전진 (최대 1.12배 제한)
+        const midScale = Math.min(1.12, 1.0 + (stone.y * 0.00002));
         drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, midScale);
     }
 
-    // 🌊 [Layer 3: 최상단 전경] 물결 터널 코스 -> ⭐️ [기획 핵심] 시작은 천천히, 갈수록 폭발적인 비선형 가속 팽창
+    // 🌊 [Layer 3: 최상단 전경] 물결 터널 코스 -> ⭐️ [역주행 버그 완전 해결]
     if (imgFore && imgFore.complete) {
-        // 비선형 가속도를 위해 거리(stone.y)에 비례하는 베이스 타임 상수를 구합니다.
-        const baseProgress = stone.y * 0.0018;
+        // 줄어드는 vy 대신 오직 끊임없이 전진하는 누적 거리(stone.y)만 기반으로 삼습니다.
+        // 초반엔 미세하게 변하다가 거리(stone.y)가 쌓일수록 가속도가 붙는 제곱 비선형 연산 주입
+        const accelFactor = stone.y * 0.0004;
         
-        // 초반 발사 속도가 엄청나게 빠를 때(vy가 클 때) 스케일 변화량을 증폭시키는 완급조절 가속 연산
-        // % 3.0 연산을 통해 물결 터널 텍스처가 유저 눈앞 화면 밖으로 무한히 끊임없이 루핑 팽창
-        const fgScale = 1.0 + ((baseProgress * (1.0 + stone.vy * 0.04)) % 3.0);
+        // Math.pow(accelFactor, 1.5)를 통해 뒤로 밀리는 현상을 원천 차단하고 '점진적 점프 가속도' 완성
+        // % 3.5를 통해 스케일이 최대치에 도달하면 소실점 내부에서 새 전경이 끊임없이 뿜어져 나옵니다.
+        const fgScale = 1.0 + (Math.pow(accelFactor, 1.5) % 3.5);
         
         drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, fgScale);
     }
 
-    // 수면 물결선 (rippleLayers) 렌더링 -> 2.5D 원근감 가이드라인 유지
+    // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
     rippleLayers.forEach(l => {
         const rz = l.z; 
         const lineY = HORIZON_Y + (H - HORIZON_Y) * Math.pow(rz, 2.2); 
