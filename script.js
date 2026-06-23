@@ -1189,7 +1189,9 @@ class SplashParticle {
     constructor(x,y,isPerfect,isSink) {
         this.x=x; this.y=y; const rarity=selectedStone?.rarity||'Ordinary'; let sm=1;
         if (rarity==='Mythic') sm=1.7; else if (rarity==='Legendary') sm=1.35; else if (rarity==='Rare') sm=1.15;
-        const angle=Math.random()*Math.PI-Math.PI; const spd=(Math.random()*(isPerfect?11:7)+(isPerfect?3:1))*sm;
+        const baseAngle = Math.random() < 0.5 ? (Math.PI * 1.15) : (Math.PI * 1.65);
+        const angle = baseAngle + (Math.random() - 0.5) * 0.3;
+        const spd=(Math.random()*(isPerfect?11:7)+(isPerfect?3:1))*sm;
         this.vx=Math.cos(angle)*spd*0.7; this.vy=Math.sin(angle)*spd-(isSink?4.5:2.5); this.r=(Math.random()*(isPerfect?6:3)+2.2)*(rarity==='Mythic'?1.4:1); this.grav=rarity==='Mythic'?0.26:0.34; this.alpha=1; this.decay=(Math.random()*0.025+0.014)*(rarity==='Mythic'?0.72:1);
         if (rarity==='Mythic') { const rn=Math.random(); this.color=rn>0.65?'#ffd700':rn>0.4?'#d9ff00':rn>0.2?'#f97316':'#ffffff'; }
         else if (rarity==='Legendary') { this.color=Math.random()>0.5?'#c084fc':'#ffd700'; }
