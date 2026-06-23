@@ -845,6 +845,18 @@ function processBounce(rating, isAuto = false) {
     }
     spawnRipple(ex, ey);
 
+    // V자형 과장 수면 물결(Wake) 파티클 생성
+    const wakeCount = 26;
+    for (let i = 0; i < wakeCount / 2; i++) {
+        const vxL = -Math.random() * 4 - 2;
+        const vyL = -stone.vy * 0.3;
+        particles.push(new WakeParticle(ex, ey, vxL, vyL));
+
+        const vxR = Math.random() * 4 + 2;
+        const vyR = -stone.vy * 0.3;
+        particles.push(new WakeParticle(ex, ey, vxR, vyR));
+    }
+
     const em = Math.pow(1.08, upgrades.elasticity);
     const sp = stone.activePhys || selectedStone.physics; const rarity = selectedStone.rarity;
 
@@ -1120,6 +1132,30 @@ function drawFxCanvas() {
 // ===========================================================
 //  ⚙️ 이펙트 서브 모듈 오브젝트 풀 인스턴스 클래스들
 // ===========================================================
+class WakeParticle {
+    constructor(x,y,vx,vy) {
+        this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.r=Math.random()*2+1.5; this.alpha=0.75; this.decay=Math.random()*0.025+0.015;
+    }
+    update() {
+        this.x+=this.vx; this.y+=this.vy; this.r+=0.4; this.alpha-=this.decay;
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha=Math.max(0,this.alpha);
+        ctx.beginPath();
+        ctx.ellipse(this.x,this.y,this.r,this.r*0.4,0,0,Math.PI*2);
+        const grad = ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r);
+        grad.addColorStop(0,'rgba(255,255,255,0.8)');
+        grad.addColorStop(0.35,'rgba(0,240,255,0.4)');
+        grad.addColorStop(1,'rgba(0,240,255,0)');
+        ctx.fillStyle=grad;
+        ctx.shadowBlur=12;
+        ctx.shadowColor='rgba(0,240,255,0.5)';
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
 class TrailParticle {
     constructor(x,y) {
         this.x=x+(Math.random()-0.5)*22; this.y=y+8; this.vx=(Math.random()-0.5)*2.2; this.vy=-Math.random()*2.8-1.8; this.r=Math.random()*4+3; this.alpha=0.82; this.decay=Math.random()*0.042+0.025;
