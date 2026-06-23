@@ -906,7 +906,7 @@ function draw7LayerBG() {
     // ⛰️ [Layer 2: 중간 레이어] 'images/midground_lake.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 거리(stone.y)에 비례하여 미세 팽창
     bgCtx.save();
     if (imgMid && imgMid.complete) {
-        const midScale = 1.0 + (stone.y * 0.002) % 0.2;
+        const midScale = Math.min(1.25, 1.0 + (stone.y * 0.00015));
         drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, midScale);
     }
     bgCtx.restore();
