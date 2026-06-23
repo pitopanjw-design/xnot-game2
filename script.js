@@ -608,6 +608,8 @@ function triggerLaunch(dy, dx) {
     stone.vz = (swipeSpeed*Math.sin(rad)*0.75)*distFact;
     stone.vx = ((dx/dur)*2)*distFact;
 
+    const zone = getAngleZone(launchAngle);
+
     let ap=null, isCrit=false, isLotto=false; const ss = selectedStone;
     if (ss.rarity==='Mythic') {
         if (window.forceLotto || Math.random()<ss.physics.lottoChance) { ap=JSON.parse(JSON.stringify(ss.physics.lottoPhysics)); isLotto=true; }
@@ -636,9 +638,12 @@ function triggerLaunch(dy, dx) {
     if (swipeSpeed>=30) {
         document.getElementById('message').innerText = `⚡ ${t('lightningLaunch')} ⚡`;
         spawnDramaticText(t('lightningLaunch'), 'neon-gold'); triggerShake('heavy');
-    } else if (swipeSpeed>=20) {
-        document.getElementById('message').innerText = `🔥 ${t('fastLaunch')} 🔥`;
-        spawnDramaticText(t('fastLaunch'), 'neon-lime'); triggerShake('medium');
+    } else if (zone === 'PERFECT') {
+        document.getElementById('message').innerText = "✨ PERFECT LAUNCH! ✨";
+        spawnDramaticText("PERFECT LAUNCH!", 'neon-lime'); triggerShake('medium');
+    } else if (zone === 'SAFETY') {
+        document.getElementById('message').innerText = "👍 안정적인 발사";
+        haptic('medium');
     } else {
         document.getElementById('message').innerText = t('normalLaunch'); haptic('medium');
     }
