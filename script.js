@@ -844,7 +844,7 @@ function triggerWaterSink() {
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
 
 // ===========================================================
-//  🖼️ [Gem 직접 코딩] 정통 3단 레이어 중첩 패럴랙스 엔진 (원상 복구 완료)
+//  🖼️ [Gem 직접 코딩] 1인칭 소실점 점진 가속 패럴랙스 엔진 (완벽 교정본)
 // ===========================================================
 function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
     if (!img || !img.complete) return;
@@ -879,7 +879,7 @@ function drawStaticBackground() {
     const imgMid  = bgImgCache['images/midground_lake.png'];
     const imgFore = bgImgCache['images/foreground_lake.png'];
 
-    // 로비 대기 화면: 화면 정중앙(W/2, H/2) 소실점 기준 찌그러짐 없이 화면 전체 크기에 예쁘게 겹쳐 드로잉
+    // 로비 대기 화면: 화면 정중앙 소실점 기준 3단 레이어 정배율 중첩 렌더링
     if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     if (imgMid && imgMid.complete) drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, 1.0);
     if (imgFore && imgFore.complete) drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, 1.0);
@@ -896,32 +896,31 @@ function draw7LayerBG() {
     const imgMid  = bgImgCache['images/midground_lake.png'];
     const imgFore = bgImgCache['images/foreground_lake.png'];
 
-    // 🌌 [Layer 1: 최하단 베이스] 'images/background_lake.png' 이미지를 화면 정중앙(W/2, H/2) 소실점 기준으로 화면 전체에 고정 렌더링 (스케일 변화 없음)
-    bgCtx.save();
+    // 🌌 [Layer 1: 최하단 베이스] 고정 우주 밤하늘/호수 원경 -> 소실점 중심축 고정 (스케일 1.0)
     if (imgBase && imgBase.complete) {
         drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     }
-    bgCtx.restore();
 
-    // ⛰️ [Layer 2: 중간 레이어] 'images/midground_lake.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 거리(stone.y)에 비례하여 미세 팽창
-    bgCtx.save();
+    // ⛰️ [Layer 2: 중간 레이어] 산/섬 -> 리셋(축소) 없이 누적 거리에 따라 은은하게 단방향 팽창 확대
     if (imgMid && imgMid.complete) {
-        const midScale = Math.min(1.15, 1.0 + (stone.y * 0.00003));
+        // stone.y 기반의 초정밀 댐핑 필터링으로 1.0에서 최대 1.2까지 리셋 없이 아스라이 전진
+        const midScale = Math.min(1.20, 1.0 + (stone.y * 0.00004));
         drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, midScale);
     }
-    bgCtx.restore();
 
-    // 🌊 [Layer 3: 최상단 전경 - 터널 가속도 핵심] 'images/foreground_lake.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 속도(stone.vy)와 누적 거리(stone.y)를 조합하여 실시간 확대 스케일값을 구함
-    bgCtx.save();
+    // 🌊 [Layer 3: 최상단 전경] 물결 터널 코스 -> ⭐️ [기획 핵심] 시작은 천천히, 갈수록 폭발적인 비선형 가속 팽창
     if (imgFore && imgFore.complete) {
-        let progressFactor = (stone.y * 0.0005) * (stone.vy * 0.1);
-        const fgScale = 1.0 + (progressFactor % 3.0);
-        // drawScaledCenteredCoverImage가 내부적으로 translate(W/2, H/2), scale(fgScale, fgScale) 및 중심점 정렬 그리기를 처리함
+        // 비선형 가속도를 위해 거리(stone.y)에 비례하는 베이스 타임 상수를 구합니다.
+        const baseProgress = stone.y * 0.0018;
+        
+        // 초반 발사 속도가 엄청나게 빠를 때(vy가 클 때) 스케일 변화량을 증폭시키는 완급조절 가속 연산
+        // % 3.0 연산을 통해 물결 터널 텍스처가 유저 눈앞 화면 밖으로 무한히 끊임없이 루핑 팽창
+        const fgScale = 1.0 + ((baseProgress * (1.0 + stone.vy * 0.04)) % 3.0);
+        
         drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, fgScale);
     }
-    bgCtx.restore();
 
-    // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
+    // 수면 물결선 (rippleLayers) 렌더링 -> 2.5D 원근감 가이드라인 유지
     rippleLayers.forEach(l => {
         const rz = l.z; 
         const lineY = HORIZON_Y + (H - HORIZON_Y) * Math.pow(rz, 2.2); 
