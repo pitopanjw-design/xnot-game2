@@ -175,7 +175,36 @@ function initLang() {
     currentLang = i18n[lang] ? lang : 'en';
 }
 function t(k) { return (i18n[currentLang]?.[k]) || (i18n['en']?.[k]) || k; }
-function applyI18n() { document.querySelectorAll('[data-i18n]').forEach(el => { const k=el.getAttribute('data-i18n'); if(t(k)!==k) el.innerText=t(k); }); }
+function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k=el.getAttribute('data-i18n');
+        if(t(k)!==k) el.innerText=t(k);
+    });
+
+    // 인트로 화면 버튼 강제 다국어 렌더링
+    const introStart = document.getElementById('intro-start-btn');
+    if (introStart) introStart.innerText = t('introStartBtn');
+
+    const introInfo = document.getElementById('intro-info-btn');
+    if (introInfo) introInfo.innerText = t('introInfoBtn');
+
+    // 하단 상점 및 메인 액션 버튼 렌더링
+    const shopBtn = document.getElementById('shop-btn');
+    if (shopBtn) shopBtn.innerText = t('shopBtn');
+
+    const mainBtn = document.getElementById('main-btn');
+    if (mainBtn) mainBtn.innerText = t('spinBtn');
+
+    // HUD 및 가이드 텍스트 초기화 매핑
+    const message = document.getElementById('message');
+    if (message) message.innerText = t('prepareMsg');
+
+    const scoreDisp = document.getElementById('score-display');
+    if (scoreDisp) scoreDisp.innerText = t('ready');
+
+    const swipeGuide = document.getElementById('swipe-guide');
+    if (swipeGuide) swipeGuide.innerText = t('swipeGuide');
+}
 
 // ===========================================================
 //  📳 텔레그램 햅틱 진동 피드백
