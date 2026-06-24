@@ -652,7 +652,7 @@ function startAngleGauge() {
         else if (angleVal<=0) { 
             angleVal=0; 
             angleDir=1; 
-            gaugeSpeedMult = Math.min(2.5, gaugeSpeedMult + 0.1);
+            gaugeSpeedMult = Math.min(2.5, parseFloat((gaugeSpeedMult + 0.2).toFixed(1)));
         }
         document.getElementById('gauge-bar').style.height = `${angleVal*100}%`;
         document.getElementById('gauge-marker').style.bottom = `${angleVal*100}%`;
@@ -732,7 +732,7 @@ function triggerLaunch(dy, dx) {
 
     let zone = getAngleZone(angleVal);
 
-    // [하이퍼 조건] 최고 속도 도달 상태에서 PERFECT 적중 시 강제 EASTEREG 판정
+    // [하이퍼 조건] 최고 속도 도달 상태에서 PERFECT 적중 시 강제 EASTEREG 판정 (소수점 오차 차단)
     if (gaugeSpeedMult >= 2.5 && zone === 'PERFECT') {
         zone = 'EASTEREG';
     }
