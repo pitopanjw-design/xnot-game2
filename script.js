@@ -256,7 +256,7 @@ const STONES = [
 let playerHearts = 5;
 let playerSP = 0;
 let upgrades = { weight:0, elasticity:0, spin:0 };
-let gaugeSpeedMult = 1.0;
+let gaugeSpeedMult = 2.0;
 const UPGRADE_BASE_COST = 300, MAX_LV = 10;
 
 let selectedStone = null;
@@ -576,6 +576,7 @@ function playSeamlessTransition() {
 //  🕹️ 인게임 진입 및 조작 인터페이스 활성화
 // ===========================================================
 function startGameplay() {
+    gaugeSpeedMult = 2.0;
     setStoneStyle();
     const stoneEl = document.getElementById('ingame-stone');
     stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
@@ -652,7 +653,7 @@ function startAngleGauge() {
         else if (angleVal<=0) { 
             angleVal=0; 
             angleDir=1; 
-            gaugeSpeedMult = Math.min(2.5, parseFloat((gaugeSpeedMult + 0.2).toFixed(1)));
+            gaugeSpeedMult = Math.min(3.0, parseFloat((gaugeSpeedMult + 0.2).toFixed(1)));
         }
         document.getElementById('gauge-bar').style.height = `${angleVal*100}%`;
         document.getElementById('gauge-marker').style.bottom = `${angleVal*100}%`;
@@ -733,7 +734,7 @@ function triggerLaunch(dy, dx) {
     let zone = getAngleZone(angleVal);
 
     // [하이퍼 조건] 최고 속도 도달 상태에서 PERFECT 적중 시 강제 EASTEREG 판정 (소수점 오차 차단)
-    if (gaugeSpeedMult >= 2.5 && zone === 'PERFECT') {
+    if (gaugeSpeedMult >= 3.0 && zone === 'PERFECT') {
         zone = 'EASTEREG';
     }
 
@@ -766,7 +767,7 @@ function triggerLaunch(dy, dx) {
     let mult = 1.0;
     if (zone === 'EASTEREG') {
         mult = 2.0;
-        if (gaugeSpeedMult >= 2.5) {
+        if (gaugeSpeedMult >= 3.0) {
             document.getElementById('message').innerText = "⚡ MAX SPEED HYPER DRIVE! ⚡";
         } else {
             document.getElementById('message').innerText = "⚡ 하이퍼 드라이브 발사! ⚡";
@@ -811,7 +812,7 @@ function triggerLaunch(dy, dx) {
     stone.vz *= mult;
 
     // 발사 성공 직후 속도 배율 청소 (초기화)
-    gaugeSpeedMult = 1.0;
+    gaugeSpeedMult = 2.0;
 
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, {passive:true});
@@ -1395,6 +1396,7 @@ function closeResultModal() {
     }
     
     setAssetBarVisible(true); 
+    gaugeSpeedMult = 2.0;
     updateAssetUI(); 
     changeRandomBg(); 
     drawStaticBackground();
