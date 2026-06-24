@@ -774,13 +774,12 @@ function triggerLaunch(dy, dx) {
         spawnDramaticText("HYPER DRIVE!", 'neon-gold');
         triggerShake('heavy');
 
+        // (순정 플래시 연출 유지)
         const flash = document.createElement('div');
         flash.style.cssText = 'position:absolute;inset:0;background:rgba(255,215,0,0.4);z-index:250;pointer-events:none;animation:fade-flash 0.5s ease forwards;';
         document.getElementById('game-container').appendChild(flash);
-        const style = document.createElement('style');
-        style.textContent = '@keyframes fade-flash{from{opacity:1}to{opacity:0}}';
-        document.head.appendChild(style);
-        setTimeout(() => { flash.remove(); style.remove(); }, 520);
+        setTimeout(() => { flash.remove(); }, 520);
+
     } else if (zone === 'PERFECT') {
         const stoneRandom = 0.9 + Math.random() * 0.2;
         const swipeWeight = 1.0 + (swipeSpeed * 0.01);
@@ -788,10 +787,12 @@ function triggerLaunch(dy, dx) {
         document.getElementById('message').innerText = "✨ PERFECT LAUNCH! ✨";
         spawnDramaticText("PERFECT LAUNCH!", 'neon-lime');
         triggerShake('medium');
+
     } else if (zone === 'GREEN') {
         mult = 1.2;
         document.getElementById('message').innerText = "👍 안정적인 그린 발사";
         haptic('medium');
+
     } else if (zone === 'RED') {
         mult = 0.0;
         stone.vy = 0;
@@ -799,6 +800,7 @@ function triggerLaunch(dy, dx) {
         haptic('error');
         triggerWaterMiss();
         document.getElementById('message').innerText = "❌ MISS! 투척 실패";
+
     } else {
         mult = 1.0;
         document.getElementById('message').innerText = t('normalLaunch');
