@@ -632,16 +632,47 @@ function getAngleZone(angleVal) {
 }
 
 function updateGaugePerfectZone() {
-    const sr = (2+upgrades.spin*0.8)*(2/3);
-    const remH=15-sr, safeR=remH*0.6, redR=remH*0.4;
-    const set=(id,bot,h)=>{ const el=document.getElementById(id); el.style.bottom=`${bot}%`; el.style.height=`${h}%`; };
-    set('gz-red-bot',  ((5-5)/30)*100, (redR/30)*100);
-    set('gz-safe-bot', ((5+redR-5)/30)*100, (safeR/30)*100);
-    const pBot=((20-sr-5)/30)*100, pH=((sr*2)/30)*100;
-    const pEl=document.getElementById('gz-perfect');
-    pEl.style.bottom=`${pBot}%`; pEl.style.height=`${pH}%`;
-    set('gz-safe-top', ((20+sr-5)/30)*100, (safeR/30)*100);
-    set('gz-red-top',  ((20+sr+safeR-5)/30)*100, (redR/30)*100);
+    const perfSize = Math.min(0.10, 0.05 + ((upgrades.perfectZone || 0) * 0.005));
+    const bg = document.getElementById('angle-gauge-bg');
+    if (!bg) return;
+
+    // 이스터에그 영역 동적 생성 (index.html 수정을 피하고 무결성 확보)
+    let easterBot = document.getElementById('gz-easter-bot');
+    if (!easterBot) {
+        easterBot = document.createElement('div');
+        easterBot.className = 'gauge-zone';
+        easterBot.id = 'gz-easter-bot';
+        easterBot.style.background = 'rgba(255, 215, 0, 0.7)';
+        easterBot.style.borderTop = '1px dashed var(--neon-gold)';
+        easterBot.style.borderBottom = '1px dashed var(--neon-gold)';
+        bg.appendChild(easterBot);
+    }
+    let easterTop = document.getElementById('gz-easter-top');
+    if (!easterTop) {
+        easterTop = document.createElement('div');
+        easterTop.className = 'gauge-zone';
+        easterTop.id = 'gz-easter-top';
+        easterTop.style.background = 'rgba(255, 215, 0, 0.7)';
+        easterTop.style.borderTop = '1px dashed var(--neon-gold)';
+        easterTop.style.borderBottom = '1px dashed var(--neon-gold)';
+        bg.appendChild(easterTop);
+    }
+
+    const set = (id, bot, h) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.bottom = `${bot}%`;
+            el.style.height = `${h}%`;
+        }
+    };
+
+    set('gz-easter-bot', 0, 1);
+    set('gz-red-bot', 1, 5);
+    set('gz-safe-bot', (0.5 - perfSize / 2 - 0.15) * 100, 15);
+    set('gz-perfect', (0.5 - perfSize / 2) * 100, perfSize * 100);
+    set('gz-safe-top', (0.5 + perfSize / 2) * 100, 15);
+    set('gz-red-top', 94, 5);
+    set('gz-easter-top', 99, 1);
 }
 
 function startAngleGauge() {
