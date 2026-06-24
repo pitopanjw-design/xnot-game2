@@ -739,7 +739,9 @@ function triggerLaunch(dy, dx) {
         document.head.appendChild(style);
         setTimeout(() => { flash.remove(); style.remove(); }, 520);
     } else if (zone === 'PERFECT') {
-        mult = 1.5;
+        const stoneRandom = 0.9 + Math.random() * 0.2;
+        const swipeWeight = 1.0 + (swipeSpeed * 0.01);
+        mult = 1.5 * stoneRandom * swipeWeight;
         document.getElementById('message').innerText = "✨ PERFECT LAUNCH! ✨";
         spawnDramaticText("PERFECT LAUNCH!", 'neon-lime');
         triggerShake('medium');
@@ -749,8 +751,11 @@ function triggerLaunch(dy, dx) {
         haptic('medium');
     } else if (zone === 'RED') {
         mult = 0.0;
-        document.getElementById('message').innerText = "❌ MISS! 투척 실패";
+        stone.vy = 0;
+        stone.vz = 0;
         haptic('error');
+        triggerWaterMiss();
+        document.getElementById('message').innerText = "❌ MISS! 투척 실패";
     } else {
         mult = 1.0;
         document.getElementById('message').innerText = t('normalLaunch');
