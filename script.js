@@ -256,6 +256,7 @@ const STONES = [
 let playerHearts = 5;
 let playerSP = 0;
 let upgrades = { weight:0, elasticity:0, spin:0 };
+let gaugeSpeedMult = 1.0;
 const UPGRADE_BASE_COST = 300, MAX_LV = 10;
 
 let selectedStone = null;
@@ -646,9 +647,13 @@ function startAngleGauge() {
     angleVal=0.5; angleDir=1;
     const tick = () => {
         if (currentStatus!=='READY_TO_LAUNCH') return;
-        angleVal += angleDir*0.010;
+        angleVal += angleDir*0.010*gaugeSpeedMult;
         if (angleVal>=1) { angleVal=1; angleDir=-1; }
-        else if (angleVal<=0) { angleVal=0; angleDir=1; }
+        else if (angleVal<=0) { 
+            angleVal=0; 
+            angleDir=1; 
+            gaugeSpeedMult = Math.min(2.5, gaugeSpeedMult + 0.1);
+        }
         document.getElementById('gauge-bar').style.height = `${angleVal*100}%`;
         document.getElementById('gauge-marker').style.bottom = `${angleVal*100}%`;
         launchAngle = 5+angleVal*30;
@@ -725,7 +730,12 @@ function triggerLaunch(dy, dx) {
     stone.vz = (swipeSpeed*Math.sin(rad)*0.75)*distFact;
     stone.vx = ((dx/dur)*2)*distFact;
 
-    const zone = getAngleZone(angleVal);
+    let zone = getAngleZone(angleVal);
+
+    // [하이퍼 조건] 최고 속도 도달 상태에서 PERFECT 적중 시 강제 EASTEREG 판정
+    if (gaugeSpeedMult >= 2.5 && zone === 'PERFECT') {
+        zone = 'EASTEREG';
+    }
 
     let ap=null, isCrit=false, isLotto=false; const ss = selectedStone;
     if (ss.rarity==='Mythic') {
@@ -756,7 +766,11 @@ function triggerLaunch(dy, dx) {
     let mult = 1.0;
     if (zone === 'EASTEREG') {
         mult = 2.0;
-        document.getElementById('message').innerText = "⚡ 하이퍼 드라이브 발사! ⚡";
+        if (gaugeSpeedMult >= 2.5) {
+            document.getElementById('message').innerText = "⚡ MAX SPEED HYPER DRIVE! ⚡";
+        } else {
+            document.getElementById('message').innerText = "⚡ 하이퍼 드라이브 발사! ⚡";
+        }
         spawnDramaticText("HYPER DRIVE!", 'neon-gold');
         triggerShake('heavy');
 
@@ -793,6 +807,9 @@ function triggerLaunch(dy, dx) {
 
     stone.vy *= mult;
     stone.vz *= mult;
+
+    // 발사 성공 직후 속도 배율 청소 (초기화)
+    gaugeSpeedMult = 1.0;
 
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, {passive:true});
