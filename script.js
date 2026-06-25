@@ -1119,12 +1119,8 @@ function triggerWaterSink() {
     spawnRipple(ex,ey); createParticles(ex,ey,false,true,14);
     document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
 
-    showTrollPopup();
-    
-    // 💡 캡틴의 명세: 1초간 홀딩 후 정산창 진입
-    setTimeout(() => {
-        endGame();
-    }, 1000);
+    // 💡 팝업과 1초 지연 없이 즉시 정산창으로 진입
+    endGame();
 }
 
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
