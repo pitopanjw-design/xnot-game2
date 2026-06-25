@@ -946,43 +946,22 @@ function applyStonePos() {
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 현재 바운스 수가 홀수(1, 3, 5..)라면, 다음 튕김은 짝수 회차이므로 탭 입력을 완전히 무시(return)
-    if (bounceCount % 2 !== 0) {
+    // 💡 캡틴의 연타/꼼수 방지 필터: 타이밍이 아닐 때 치면 무조건 즉시 미스 사망!
+    if (!isWindowActive || (bounceCount % 2 !== 0)) {
+        triggerWaterMiss();
         return;
     }
 
-    // 돌이 상승 중일 때 탭하면 연타/스팸으로 간주하여 패널티를 부여하고 이번 주기의 탭 기회를 박탈
-    if (stone.vz >= 0) {
-        hasTappedBounce = true; // 플래그를 강제로 true로 묶어 연타 차단
-        stone.vy *= 0.40;       // 전진 속도(vy)를 0.40배 이하로 꺾음
-        stone.vz *= 0.40;
-        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
-        haptic('error');
-        return;
-    }
-
-    // 이미 이번 낙하 주기에서 탭을 한 상태에서 또 탭한 경우 (연타 패널티)
-    if (hasTappedBounce) {
-        stone.vy *= 0.40;       // 전진 속도(vy)를 0.40배 이하로 꺾음
-        stone.vz *= 0.40;
-        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
-        haptic('error');
-        return;
-    }
-
+    // 이미 이번 낙하 주기에서 탭을 처리한 경우 중복 차단
+    if (hasTappedBounce) return;
     hasTappedBounce = true;
-    tapsInCurrentCycle = 1;
 
-    let rating = 'BAD';
-    // [0.5초 타임어택 판정] 윈도우가 열려 있고 500ms 이내에 탭한 경우 PERFECT, 그 외에는 BAD
     if (isWindowActive && (Date.now() - tapWindowStart <= 500)) {
-        isWindowActive = false; // 중복 터치 방지
-        rating = 'PERFECT';
+        isWindowActive = false; // 윈도우 닫기
+        processBounce('PERFECT', false);
     } else {
-        rating = 'BAD';
+        triggerWaterMiss();
     }
-
-    processBounce(rating, false);
 }
 
 function processBounce(rating, isAuto = false) {
