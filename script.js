@@ -869,7 +869,7 @@ function runGameLoop() {
 function updatePhysics() {
     if (isDead) {
         stone.vz -= GRAVITY*0.5; stone.z += stone.vz;
-        if (stone.z < -50) { endGame(); return; }
+        // 침수 함수 내의 setTimeout에서 1초 뒤 endGame()을 직접 제어하므로 물리 엔진 자동 호출은 제거합니다.
         applyStonePos(); return;
     }
 
@@ -1070,61 +1070,60 @@ function processBounce(rating, isAuto = false) {
     updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
 }
 
+// 💡 킹받는 랜덤 팝업 레이어 (trollBox) 동적 생성 및 1.5초 홀딩 공통 함수
+function showTrollPopup() {
+    const trollTexts = [
+        "물고기 밥 주기 성공! 🐟",
+        "돌과 함께 가라앉은 내 점수... 📉",
+        "혹시 손가락에 쥐가 나셨나요? 🐭",
+        "강물이 참 맑고 차갑네요. 🌊",
+        "수면과 돌의 각도가 예술적으로 어긋났습니다! 📐"
+    ];
+    const randomText = trollTexts[Math.floor(Math.random() * trollTexts.length)];
+    
+    const trollBox = document.createElement('div');
+    trollBox.className = 'troll-box';
+    trollBox.style.cssText = 'position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:16px 28px;background:rgba(5,5,20,0.95);border:2px solid #ef4444;border-radius:12px;color:#ef4444;font-family:"Impact", sans-serif;font-weight:900;font-size:16px;z-index:9999;box-shadow:0 0 25px rgba(239,68,68,0.75);text-align:center;pointer-events:none;animation:troll-fade-in 0.3s ease-out;';
+    trollBox.innerText = randomText;
+    document.getElementById('game-container').appendChild(trollBox);
+    
+    // 결과창 정산 및 닫기 전까지 부드럽게 잔류하도록 딜레이 조절
+    setTimeout(() => {
+        trollBox.style.transition = 'opacity 0.5s ease';
+        trollBox.style.opacity = '0';
+        setTimeout(() => trollBox.remove(), 500);
+    }, 1500);
+}
+
 function triggerWaterMiss() {
-    isDead=true; stone.vz=-3; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
+    if (isDead) return; // 중복 실행 방지
+    isDead = true;
+    stone.vz = -3;
+    const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
     spawnRatingText(ex,ey,'MISS'); spawnRipple(ex,ey); createParticles(ex,ey,false,true,22);
     document.getElementById('message').innerText = t('missMsg'); haptic('error'); SoundManager.playSink();
 
-    // 킹받는 랜덤 팝업 레이어 (trollBox) 동적 생성 및 노출
-    const trollTexts = [
-        "물고기 밥 주기 성공! 🐟",
-        "돌과 함께 가라앉은 내 점수... 📉",
-        "혹시 손가락에 쥐가 나셨나요? 🐭",
-        "강물이 참 맑고 차갑네요. 🌊",
-        "수면과 돌의 각도가 예술적으로 어긋났습니다! 📐"
-    ];
-    const randomText = trollTexts[Math.floor(Math.random() * trollTexts.length)];
+    showTrollPopup();
     
-    const trollBox = document.createElement('div');
-    trollBox.className = 'troll-box';
-    trollBox.style.cssText = 'position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:16px 28px;background:rgba(5,5,20,0.95);border:2px solid #ef4444;border-radius:12px;color:#ef4444;font-family:"Impact", sans-serif;font-weight:900;font-size:16px;z-index:9999;box-shadow:0 0 25px rgba(239,68,68,0.75);text-align:center;pointer-events:none;animation:troll-fade-in 0.3s ease-out;';
-    trollBox.innerText = randomText;
-    document.getElementById('game-container').appendChild(trollBox);
-    
-    // 정산창 딜레이와 맞추어 안전하게 수거되도록 타이머 조절
+    // 💡 캡틴의 명세: 1초간 홀딩 후 정산창 진입
     setTimeout(() => {
-        trollBox.style.transition = 'opacity 0.5s ease';
-        trollBox.style.opacity = '0';
-        setTimeout(() => trollBox.remove(), 500);
-    }, 2000);
+        endGame();
+    }, 1000);
 }
 function triggerWaterSink() {
-    if (isDead) return;
-    isDead=true; stone.vz=-1.5; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
+    if (isDead) return; // 중복 실행 방지
+    isDead = true;
+    stone.vz = -1.5;
+    const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
     spawnRipple(ex,ey); createParticles(ex,ey,false,true,14);
     document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
 
-    // 킹받는 랜덤 팝업 레이어 (trollBox) 동적 생성 및 노출
-    const trollTexts = [
-        "물고기 밥 주기 성공! 🐟",
-        "돌과 함께 가라앉은 내 점수... 📉",
-        "혹시 손가락에 쥐가 나셨나요? 🐭",
-        "강물이 참 맑고 차갑네요. 🌊",
-        "수면과 돌의 각도가 예술적으로 어긋났습니다! 📐"
-    ];
-    const randomText = trollTexts[Math.floor(Math.random() * trollTexts.length)];
+    showTrollPopup();
     
-    const trollBox = document.createElement('div');
-    trollBox.className = 'troll-box';
-    trollBox.style.cssText = 'position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:16px 28px;background:rgba(5,5,20,0.95);border:2px solid #ef4444;border-radius:12px;color:#ef4444;font-family:"Impact", sans-serif;font-weight:900;font-size:16px;z-index:9999;box-shadow:0 0 25px rgba(239,68,68,0.75);text-align:center;pointer-events:none;animation:troll-fade-in 0.3s ease-out;';
-    trollBox.innerText = randomText;
-    document.getElementById('game-container').appendChild(trollBox);
-    
+    // 💡 캡틴의 명세: 1초간 홀딩 후 정산창 진입
     setTimeout(() => {
-        trollBox.style.transition = 'opacity 0.5s ease';
-        trollBox.style.opacity = '0';
-        setTimeout(() => trollBox.remove(), 500);
-    }, 2000);
+        endGame();
+    }, 1000);
 }
 
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
