@@ -879,9 +879,9 @@ function updatePhysics() {
     layerProgress += stone.vy * 0.00008;
     stone.y += stone.vy; stone.z += stone.vz; stone.vz -= GRAVITY;
 
-    // 돌이 날아가고 있는 비행 상태 전체에서 markerProgress가 매 프레임 일정하게 증가 (markerProgress += 0.04)
+    // 돌이 날아가고 있는 비행 상태 전체에서 markerProgress가 매 프레임 일정하게 증가 (markerProgress += 0.012)
     if (currentStatus === 'FLYING' && !isDead) {
-        markerProgress += 0.04;
+        markerProgress += 0.012; // 수축 속도를 현실적인 아케이드 리듬 속도로 다운 기어링
         if (markerProgress >= 1.0) {
             markerProgress = 0; // 1.0 도달 시 즉시 바깥 큰 원에서 리스폰되도록 리셋
         }
@@ -1238,8 +1238,8 @@ function drawFxCanvas() {
 
         // 3. 빨간색 수축 마커 (동적 루프): 바깥 큰 원(120,48)에서 가운데 작은 원(35,14)으로 수축 (비행 상태 전체에서 작동)
         if (currentStatus === 'FLYING' && !isDead) {
-            const rxTiming = 120 - (120 - 35) * markerProgress;
-            const ryTiming = 48 - (48 - 14) * markerProgress;
+            const rxTiming = Math.max(35, 120 - (120 - 35) * markerProgress);
+            const ryTiming = Math.max(14, 48 - (48 - 14) * markerProgress);
 
             fxCtx.save();
             fxCtx.beginPath();
