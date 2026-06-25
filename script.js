@@ -275,6 +275,7 @@ let animFrameId = null;
 let stone = { x:0, y:0, z:0, vx:0, vy:0, vz:0, activePhys:null, isCrit:false, isLotto:false };
 const GRAVITY = 0.16;
 let swipeSpeed = 0;
+let markerProgress = 0; // 리듬게임형 가외 수축 마커 진행도
 
 // 화면 포지션 기준점
 let W = window.innerWidth, H = window.innerHeight;
@@ -788,6 +789,7 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
+    markerProgress = 0; // 발사 시 마커 진행도 초기화
     for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
 
     currentStatus = 'FLYING'; isPlaying = true;
@@ -877,6 +879,14 @@ function updatePhysics() {
     layerProgress += stone.vy * 0.00008;
     stone.y += stone.vy; stone.z += stone.vz; stone.vz -= GRAVITY;
 
+    // 돌이 낙하 중일 때 markerProgress가 매 프레임 일정하게 증가 (markerProgress += 0.04)
+    if (stone.vz < 0 && !isDead) {
+        markerProgress += 0.04;
+        if (markerProgress >= 1.0) {
+            markerProgress = 0; // 1.0 도달 시 즉시 바깥 큰 원에서 리스폰되도록 리셋
+        }
+    }
+
     const wm = 1+(upgrades.weight*0.0008); const sfm = 1+(swipeSpeed*0.0001);
     const fr = stone.activePhys ? stone.activePhys.friction : 0.978;
     const baseFr = Math.min(0.9998, fr*wm*sfm);
@@ -946,13 +956,12 @@ function registerBounceTap(e) {
     hasTappedBounce = true;
     tapsInCurrentCycle = 1;
 
-    const targetRingScale = 1.0 + stone.z / 30;
-
     let rating = 'BAD';
-    if (targetRingScale >= 0.85 && targetRingScale <= 1.15) {
+    // 0.90 <= markerProgress <= 1.0 범위 내 적중 시 PERFECT, 그 외에는 BAD
+    if (markerProgress >= 0.90 && markerProgress <= 1.00) {
         rating = 'PERFECT';
     } else {
-        rating = 'BAD'; // 15% 오차범위 밖일 때 터치하면 패널티(BAD) 작동
+        rating = 'BAD';
     }
 
     processBounce(rating, false);
@@ -1039,6 +1048,7 @@ function processBounce(rating, isAuto = false) {
 
     hasTappedBounce = false;
     tapsInCurrentCycle = 0;
+    markerProgress = 0; // 바운스 성공 시 다음 낙하 주기를 위해 마커 진행도 초기화
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
 }
@@ -1208,42 +1218,36 @@ function drawFxCanvas() {
     for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.update(); p.draw(fxCtx); if (p.alpha<=0) particles.splice(i,1); }
 
     if (currentStatus==='FLYING' && !isDead) {
-        const s = selectedStone || STONES[0];
-        const rxRef = s.w / 2;
-        const ryRef = (s.w / 2) * 0.4;
-
+        // 1. 가운데 작은 원 (고정 과녁): 가로 35px, 세로 14px 네온 화이트 타겟 원 고정 드로잉
         fxCtx.save();
-        // 1. 기준 타겟 원 그리기 (돌 아래 수면 고정 좌표)
         fxCtx.beginPath();
-        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxRef, ryRef, 0, 0, Math.PI * 2);
-        fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        fxCtx.lineWidth = 2;
+        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, 35, 14, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = '#ffffff';
+        fxCtx.lineWidth = 2.5;
         fxCtx.stroke();
         fxCtx.restore();
 
-        // 2. 돌이 낙하할 때 외부에서 이 과녁을 향해 수축하는 동적 타이밍 원 그리기
+        // 2. 바깥 큰 원 (외곽 기준선): 가로 120px, 세로 48px 은은한 반투명 가이드 원 고정 드로잉
+        fxCtx.save();
+        fxCtx.beginPath();
+        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, 120, 48, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+        fxCtx.lineWidth = 1.5;
+        fxCtx.stroke();
+        fxCtx.restore();
+
+        // 3. 빨간색 수축 마커 (동적 루프): 바깥 큰 원(120,48)에서 가운데 작은 원(35,14)으로 수축
         if (stone.vz < 0) {
-            const scale = 1.0 + stone.z / 30;
-            const rxTiming = rxRef * scale;
-            const ryTiming = ryRef * scale;
+            const rxTiming = 120 - (120 - 35) * markerProgress;
+            const ryTiming = 48 - (48 - 14) * markerProgress;
 
             fxCtx.save();
             fxCtx.beginPath();
             fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxTiming, ryTiming, 0, 0, Math.PI * 2);
-
-            if (scale >= 0.85 && scale <= 1.15) { // PERFECT 오차 15% 내외
-                const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
-                fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.2)';
-                fxCtx.lineWidth = 3.5;
-                fxCtx.shadowBlur = 12;
-                fxCtx.shadowColor = 'var(--neon-lime)';
-            } else {
-                fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-                fxCtx.lineWidth = 1.5;
-                fxCtx.shadowBlur = 0;
-                fxCtx.setLineDash([4, 4]);
-            }
-
+            fxCtx.strokeStyle = '#ef4444';
+            fxCtx.lineWidth = 3;
+            fxCtx.shadowBlur = 6;
+            fxCtx.shadowColor = '#ef4444';
             fxCtx.stroke();
             fxCtx.restore();
         }
