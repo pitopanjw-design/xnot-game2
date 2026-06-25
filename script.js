@@ -1251,21 +1251,17 @@ function drawFxCanvas() {
             fxCtx.stroke();
             fxCtx.restore();
 
-            // 4. 네온 아케이드 'TAP' 가이드 텍스트 렌더링
-            fxCtx.save();
-            fxCtx.font = '900 16px "Impact", "Arial Black", sans-serif';
-            fxCtx.textAlign = 'center';
+            // 4. 네온 아케이드 'TAP!' 가이드 텍스트 렌더링 (오직 PERFECT 구간에만 팝업)
             if (markerProgress >= 0.90 && markerProgress <= 1.0) {
+                fxCtx.save();
+                fxCtx.font = '900 18px "Impact", "Arial Black", sans-serif';
+                fxCtx.textAlign = 'center';
                 fxCtx.fillStyle = 'var(--neon-lime)';
-                fxCtx.shadowBlur = 10;
+                fxCtx.shadowBlur = 14;
                 fxCtx.shadowColor = 'var(--neon-lime)';
-            } else {
-                fxCtx.fillStyle = '#ffffff';
-                fxCtx.shadowBlur = 4;
-                fxCtx.shadowColor = 'rgba(255,255,255,0.5)';
+                fxCtx.fillText('TAP!', STONE_FIXED_X, STONE_FIXED_Y + 35);
+                fxCtx.restore();
             }
-            fxCtx.fillText('TAP', STONE_FIXED_X, STONE_FIXED_Y + 35);
-            fxCtx.restore();
         }
     }
 }
