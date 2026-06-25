@@ -893,8 +893,8 @@ function updatePhysics() {
             }
         }
         
-        // 타임 윈도우가 가동 중이고 500ms가 경과하면 가이드 즉시 소멸
-        if (isWindowActive && (Date.now() - tapWindowStart > 500)) {
+        // 타임 윈도우가 가동 중이고 700ms가 경과하면 가이드 즉시 소멸
+        if (isWindowActive && (Date.now() - tapWindowStart > 700)) {
             isWindowActive = false;
         }
     }
@@ -946,28 +946,29 @@ function applyStonePos() {
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 짝수 회차 휴식기 진입 시 터치하면 자비 없이 즉시 사망 처리
-    if (bounceCount % 2 !== 0) {
-        triggerWaterMiss();
+    // 짝수 회차 휴식기에 터치하거나, 자막이 뜨지 않은 조기 입력(Early) 상태인 경우
+    if (bounceCount % 2 !== 0 || !isWindowActive) {
+        // 즉시 사망(triggerWaterMiss) 시키지 않고, 타이밍 믹스 패널티(BAD)만 준 채 물 위로 튕겨내 구제합니다.
+        hasTappedBounce = true;
+        isWindowActive = false;
+        processBounce('BAD', false);
         return;
     }
 
-    // 이미 이번 낙하 주기에서 탭 신호를 처리한 경우 중복 차단
     if (hasTappedBounce) return;
-
     const elapsed = Date.now() - tapWindowStart;
 
-    // 윈도우가 열려 있고, 정확히 0.5초(500ms) 이내에 도달한 것이 검증된 경우 -> 완벽한 PERFECT
-    if (isWindowActive && elapsed <= 500) {
+    // 대안 A: 700ms 이내에 정확히 적중한 경우 -> 완벽한 PERFECT
+    if (isWindowActive && elapsed <= 700) {
         hasTappedBounce = true;
-        isWindowActive = false; // 판정 성공 즉시 윈도우 잠금
+        isWindowActive = false;
         processBounce('PERFECT', false);
     } 
-    // 윈도우가 열려 있지 않거나, 0.5초 타임어택 시간을 초과하여 허공이나 뒷북 연타를 친 경우 -> MISS 침수
+    // 700ms를 초과한 뒷북 터치(Late)인 경우 -> 즉시 사망 대신 구제
     else {
         hasTappedBounce = true;
         isWindowActive = false;
-        triggerWaterMiss();
+        processBounce('BAD', false); // 즉시 사망 대신 기회를 한 번 더 줌
     }
 }
 
@@ -1286,15 +1287,15 @@ function drawFxCanvas() {
             const Y = stoneY - 45; // 돌의 실시간 그래픽 Y 좌표 대비 45픽셀 위
 
             const elapsed = Date.now() - tapWindowStart;
-            const ratio = Math.max(0, Math.min(1.0, (500 - elapsed) / 500));
+            const ratio = Math.max(0, Math.min(1.0, (700 - elapsed) / 700));
 
             fxCtx.save();
             fxCtx.globalAlpha = 1.0;
             fxCtx.translate(X, Y);
 
-            // 500ms 타이머 끝자락에 도달할수록 작아지며 빠르게 깜빡이는 압박 효과 연출
+            // 700ms 타이머 끝자락에 도달할수록 작아지며 빠르게 깜빡이는 압박 효과 연출
             let scale = 1.0 + ratio * 0.3;
-            if (elapsed > 350) {
+            if (elapsed > 525) {
                 if (Math.floor(Date.now() / 50) % 2 === 0) {
                     scale = 0; // 빠른 깜빡임 잔상
                 }
