@@ -879,8 +879,8 @@ function updatePhysics() {
     layerProgress += stone.vy * 0.00008;
     stone.y += stone.vy; stone.z += stone.vz; stone.vz -= GRAVITY;
 
-    // 돌이 낙하 중일 때 markerProgress가 매 프레임 일정하게 증가 (markerProgress += 0.04)
-    if (stone.vz < 0 && !isDead) {
+    // 돌이 날아가고 있는 비행 상태 전체에서 markerProgress가 매 프레임 일정하게 증가 (markerProgress += 0.04)
+    if (currentStatus === 'FLYING' && !isDead) {
         markerProgress += 0.04;
         if (markerProgress >= 1.0) {
             markerProgress = 0; // 1.0 도달 시 즉시 바깥 큰 원에서 리스폰되도록 리셋
@@ -1236,8 +1236,8 @@ function drawFxCanvas() {
         fxCtx.stroke();
         fxCtx.restore();
 
-        // 3. 빨간색 수축 마커 (동적 루프): 바깥 큰 원(120,48)에서 가운데 작은 원(35,14)으로 수축
-        if (stone.vz < 0) {
+        // 3. 빨간색 수축 마커 (동적 루프): 바깥 큰 원(120,48)에서 가운데 작은 원(35,14)으로 수축 (비행 상태 전체에서 작동)
+        if (currentStatus === 'FLYING' && !isDead) {
             const rxTiming = 120 - (120 - 35) * markerProgress;
             const ryTiming = 48 - (48 - 14) * markerProgress;
 
@@ -1254,6 +1254,7 @@ function drawFxCanvas() {
             // 4. 네온 아케이드 'TAP!' 가이드 텍스트 렌더링 (오직 PERFECT 구간에만 팝업)
             if (markerProgress >= 0.90 && markerProgress <= 1.0) {
                 fxCtx.save();
+                fxCtx.globalAlpha = 1.0; // 레이어에 묻히지 않도록 투명도 확실히 1.0 선언
                 fxCtx.font = '900 18px "Impact", "Arial Black", sans-serif';
                 fxCtx.textAlign = 'center';
                 fxCtx.fillStyle = 'var(--neon-lime)';
