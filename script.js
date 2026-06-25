@@ -1251,17 +1251,73 @@ function drawFxCanvas() {
             fxCtx.stroke();
             fxCtx.restore();
 
-            // 4. 네온 아케이드 'TAP!' 가이드 텍스트 렌더링 (오직 PERFECT 구간에만 팝업)
+            // 4. 툰 스타일 'TAP!' 3중 레이어 및 그라데이션 텍스트 상시 렌더링
+            fxCtx.save();
+            fxCtx.globalAlpha = 1.0;
+            const X = STONE_FIXED_X;
+            const Y = STONE_FIXED_Y + 38;
+            fxCtx.translate(X, Y);
+
+            let scale = 1.0;
             if (markerProgress >= 0.90 && markerProgress <= 1.0) {
-                fxCtx.save();
-                fxCtx.globalAlpha = 1.0; // 레이어에 묻히지 않도록 투명도 확실히 1.0 선언
-                fxCtx.font = '900 18px "Impact", "Arial Black", sans-serif';
-                fxCtx.textAlign = 'center';
-                fxCtx.fillStyle = 'var(--neon-lime)';
-                fxCtx.shadowBlur = 14;
-                fxCtx.shadowColor = 'var(--neon-lime)';
-                fxCtx.fillText('TAP!', STONE_FIXED_X, STONE_FIXED_Y + 35);
-                fxCtx.restore();
+                scale = 1.2 + Math.sin(Date.now() * 0.02) * 0.1;
+            }
+            fxCtx.scale(scale, scale);
+
+            fxCtx.font = '900 22px "Impact", "Arial Black", sans-serif';
+            fxCtx.textAlign = 'center';
+            fxCtx.textBaseline = 'middle';
+
+            // 1단계: 최외곽 섀도우 뇌선
+            fxCtx.strokeStyle = '#3b0712';
+            fxCtx.lineWidth = 6;
+            fxCtx.strokeText('TAP!', 0, 0);
+
+            // 2단계: 인라인 오렌지 림
+            fxCtx.strokeStyle = '#f97316';
+            fxCtx.lineWidth = 3;
+            fxCtx.strokeText('TAP!', 0, 0);
+
+            // 3단계: 불타는 옐로-레드 그라데이션 필
+            const grad = fxCtx.createLinearGradient(0, -10, 0, 10);
+            grad.addColorStop(0, '#fde047');  // 상단 밝은 황금 노란색
+            grad.addColorStop(0.4, '#eab308'); // 중간 주황 골드
+            grad.addColorStop(1, '#dc2626');  // 하단 붉은색
+            fxCtx.fillStyle = grad;
+            fxCtx.fillText('TAP!', 0, 0);
+            fxCtx.restore();
+
+            // 5. PERFECT 구간 스파크 파티클 연동
+            if (markerProgress >= 0.90 && markerProgress <= 1.0) {
+                const sparkCount = Math.random() < 0.5 ? 1 : 2;
+                for (let i = 0; i < sparkCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 2 + 1;
+                    const size = Math.random() * 3 + 2;
+                    const colors = ['#fde047', '#eab308', '#f97316', '#dc2626'];
+                    particles.push({
+                        x: STONE_FIXED_X + (Math.random() - 0.5) * 40,
+                        y: STONE_FIXED_Y + 38 + (Math.random() - 0.5) * 15,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 1,
+                        size: size,
+                        alpha: 1.0,
+                        decay: Math.random() * 0.04 + 0.03,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        update() {
+                            this.x += this.vx;
+                            this.y += this.vy;
+                            this.alpha -= this.decay;
+                        },
+                        draw(ctx) {
+                            ctx.save();
+                            ctx.globalAlpha = Math.max(0, this.alpha);
+                            ctx.fillStyle = this.color;
+                            ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+                            ctx.restore();
+                        }
+                    });
+                }
             }
         }
     }
