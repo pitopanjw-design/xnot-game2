@@ -1050,11 +1050,14 @@ function processBounce(rating, isAuto = false) {
     const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
     setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    const bdec = Math.pow(sp.vzDecay||0.83, bounceCount-1); const sbns = 1+(swipeSpeed/30);
+    const bdec = Math.pow(rating === 'PERFECT' ? Math.min(0.98, (sp.vzDecay || 0.83) + 0.12) : (sp.vzDecay || 0.83), bounceCount - 1);
+    const sbns = 1+(swipeSpeed/30);
     const zone = getAngleZone(launchAngle); let zM=1, zvB=0;
     if (zone==='PERFECT') { zM=1.25; zvB=0.2; } else if (zone==='SAFETY') { zM=1.08; zvB=0.05; }
 
-    stone.z=0.1; stone.vz = (baseVz+zvB)*em*sbns*bdec;
+    const hBoost = rating === 'PERFECT' ? 1.5 : 1.0; // PERFECT 일 때 위로 1.5배 더 솟구침
+    stone.z = 0.1;
+    stone.vz = (baseVz + zvB) * em * sbns * bdec * hBoost;
     const vdec = Math.pow(sp.vyDecay||0.92, bounceCount-1);
     if (rating === 'BAD') {
         stone.vy *= 0.40;
