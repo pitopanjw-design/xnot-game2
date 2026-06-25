@@ -946,20 +946,27 @@ function applyStonePos() {
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 💡 캡틴의 연타/꼼수 방지 필터: 타이밍이 아닐 때 치면 무조건 즉시 미스 사망!
-    if (!isWindowActive || (bounceCount % 2 !== 0)) {
+    // 짝수 회차 휴식기 진입 시 터치하면 자비 없이 즉시 사망 처리
+    if (bounceCount % 2 !== 0) {
         triggerWaterMiss();
         return;
     }
 
-    // 이미 이번 낙하 주기에서 탭을 처리한 경우 중복 차단
+    // 이미 이번 낙하 주기에서 탭 신호를 처리한 경우 중복 차단
     if (hasTappedBounce) return;
-    hasTappedBounce = true;
 
-    if (isWindowActive && (Date.now() - tapWindowStart <= 500)) {
-        isWindowActive = false; // 윈도우 닫기
+    const elapsed = Date.now() - tapWindowStart;
+
+    // 윈도우가 열려 있고, 정확히 0.5초(500ms) 이내에 도달한 것이 검증된 경우 -> 완벽한 PERFECT
+    if (isWindowActive && elapsed <= 500) {
+        hasTappedBounce = true;
+        isWindowActive = false; // 판정 성공 즉시 윈도우 잠금
         processBounce('PERFECT', false);
-    } else {
+    } 
+    // 윈도우가 열려 있지 않거나, 0.5초 타임어택 시간을 초과하여 허공이나 뒷북 연타를 친 경우 -> MISS 침수
+    else {
+        hasTappedBounce = true;
+        isWindowActive = false;
         triggerWaterMiss();
     }
 }
@@ -1067,12 +1074,57 @@ function triggerWaterMiss() {
     isDead=true; stone.vz=-3; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
     spawnRatingText(ex,ey,'MISS'); spawnRipple(ex,ey); createParticles(ex,ey,false,true,22);
     document.getElementById('message').innerText = t('missMsg'); haptic('error'); SoundManager.playSink();
+
+    // 킹받는 랜덤 팝업 레이어 (trollBox) 동적 생성 및 노출
+    const trollTexts = [
+        "물고기 밥 주기 성공! 🐟",
+        "돌과 함께 가라앉은 내 점수... 📉",
+        "혹시 손가락에 쥐가 나셨나요? 🐭",
+        "강물이 참 맑고 차갑네요. 🌊",
+        "수면과 돌의 각도가 예술적으로 어긋났습니다! 📐"
+    ];
+    const randomText = trollTexts[Math.floor(Math.random() * trollTexts.length)];
+    
+    const trollBox = document.createElement('div');
+    trollBox.className = 'troll-box';
+    trollBox.style.cssText = 'position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:16px 28px;background:rgba(5,5,20,0.95);border:2px solid #ef4444;border-radius:12px;color:#ef4444;font-family:"Impact", sans-serif;font-weight:900;font-size:16px;z-index:9999;box-shadow:0 0 25px rgba(239,68,68,0.75);text-align:center;pointer-events:none;animation:troll-fade-in 0.3s ease-out;';
+    trollBox.innerText = randomText;
+    document.getElementById('game-container').appendChild(trollBox);
+    
+    // 정산창 딜레이와 맞추어 안전하게 수거되도록 타이머 조절
+    setTimeout(() => {
+        trollBox.style.transition = 'opacity 0.5s ease';
+        trollBox.style.opacity = '0';
+        setTimeout(() => trollBox.remove(), 500);
+    }, 2000);
 }
 function triggerWaterSink() {
     if (isDead) return;
     isDead=true; stone.vz=-1.5; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
     spawnRipple(ex,ey); createParticles(ex,ey,false,true,14);
     document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
+
+    // 킹받는 랜덤 팝업 레이어 (trollBox) 동적 생성 및 노출
+    const trollTexts = [
+        "물고기 밥 주기 성공! 🐟",
+        "돌과 함께 가라앉은 내 점수... 📉",
+        "혹시 손가락에 쥐가 나셨나요? 🐭",
+        "강물이 참 맑고 차갑네요. 🌊",
+        "수면과 돌의 각도가 예술적으로 어긋났습니다! 📐"
+    ];
+    const randomText = trollTexts[Math.floor(Math.random() * trollTexts.length)];
+    
+    const trollBox = document.createElement('div');
+    trollBox.className = 'troll-box';
+    trollBox.style.cssText = 'position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:16px 28px;background:rgba(5,5,20,0.95);border:2px solid #ef4444;border-radius:12px;color:#ef4444;font-family:"Impact", sans-serif;font-weight:900;font-size:16px;z-index:9999;box-shadow:0 0 25px rgba(239,68,68,0.75);text-align:center;pointer-events:none;animation:troll-fade-in 0.3s ease-out;';
+    trollBox.innerText = randomText;
+    document.getElementById('game-container').appendChild(trollBox);
+    
+    setTimeout(() => {
+        trollBox.style.transition = 'opacity 0.5s ease';
+        trollBox.style.opacity = '0';
+        setTimeout(() => trollBox.remove(), 500);
+    }, 2000);
 }
 
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
@@ -1454,6 +1506,7 @@ function endGame() {
 }
 
 function closeResultModal() {
+    document.querySelectorAll('.troll-box').forEach(el => el.remove());
     document.getElementById('result-modal').style.display='none'; 
     
     // 💡 1. 상태 머신을 확실하게 PRE_SPIN(뽑기 전)으로 먼저 돌려놓습니다.
