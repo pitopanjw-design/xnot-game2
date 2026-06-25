@@ -1250,6 +1250,22 @@ function drawFxCanvas() {
             fxCtx.shadowColor = '#ef4444';
             fxCtx.stroke();
             fxCtx.restore();
+
+            // 4. 네온 아케이드 'TAP' 가이드 텍스트 렌더링
+            fxCtx.save();
+            fxCtx.font = '900 16px "Impact", "Arial Black", sans-serif';
+            fxCtx.textAlign = 'center';
+            if (markerProgress >= 0.90 && markerProgress <= 1.0) {
+                fxCtx.fillStyle = 'var(--neon-lime)';
+                fxCtx.shadowBlur = 10;
+                fxCtx.shadowColor = 'var(--neon-lime)';
+            } else {
+                fxCtx.fillStyle = '#ffffff';
+                fxCtx.shadowBlur = 4;
+                fxCtx.shadowColor = 'rgba(255,255,255,0.5)';
+            }
+            fxCtx.fillText('TAP', STONE_FIXED_X, STONE_FIXED_Y + 35);
+            fxCtx.restore();
         }
     }
 }
