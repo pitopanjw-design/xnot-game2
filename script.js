@@ -879,11 +879,16 @@ function updatePhysics() {
     layerProgress += stone.vy * 0.00008;
     stone.y += stone.vy; stone.z += stone.vz; stone.vz -= GRAVITY;
 
-    // 돌이 날아가고 있는 비행 상태 전체에서 markerProgress가 매 프레임 일정하게 증가 (markerProgress += 0.015)
+    // 돌이 날아가고 있는 비행 상태 전체에서 markerProgress가 매 프레임 일정하게 증가 (홀수 차수 전용)
     if (currentStatus === 'FLYING' && !isDead) {
-        markerProgress += 0.015; // 쫀득한 리듬감을 위한 최적의 기어비
-        if (markerProgress >= 1.0) {
-            markerProgress = 0;
+        const isNextOdd = (bounceCount % 2 === 0);
+        if (isNextOdd) {
+            markerProgress += 0.015; // 쫀득한 리듬감을 위한 최적의 기어비
+            if (markerProgress >= 1.0) {
+                markerProgress = 0;
+            }
+        } else {
+            markerProgress = 0; // 짝수 차수에는 가이드를 강제로 0으로 비활성화
         }
     }
 
@@ -933,6 +938,11 @@ function applyStonePos() {
 // ===========================================================
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
+
+    // 현재 바운스 수가 홀수(1, 3, 5..)라면, 다음 튕김은 짝수 회차이므로 탭 입력을 완전히 무시(return)
+    if (bounceCount % 2 !== 0) {
+        return;
+    }
 
     // 돌이 상승 중일 때 탭하면 연타/스팸으로 간주하여 패널티를 부여하고 이번 주기의 탭 기회를 박탈
     if (stone.vz >= 0) {
@@ -1218,84 +1228,87 @@ function drawFxCanvas() {
     for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.update(); p.draw(fxCtx); if (p.alpha<=0) particles.splice(i,1); }
 
     if (currentStatus==='FLYING' && !isDead) {
-        // 1. 역방향 수면 물결(Ripple) 통합형 탭 마커 렌더링
-        const rx = 90 * (1.0 - markerProgress);
-        const ry = 36 * (1.0 - markerProgress);
+        const isNextOdd = (bounceCount % 2 === 0);
+        if (isNextOdd) {
+            // 1. 역방향 수면 물결(Ripple) 통합형 탭 마커 렌더링
+            const rx = 90 * (1.0 - markerProgress);
+            const ry = 36 * (1.0 - markerProgress);
 
-        fxCtx.save();
-        fxCtx.beginPath();
-        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rx, ry, 0, 0, Math.PI * 2);
-        fxCtx.strokeStyle = `rgba(0, 240, 255, ${Math.max(0.2, 1.0 - markerProgress)})`;
-        fxCtx.lineWidth = 2.5;
-        fxCtx.stroke();
-        fxCtx.restore();
+            fxCtx.save();
+            fxCtx.beginPath();
+            fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rx, ry, 0, 0, Math.PI * 2);
+            fxCtx.strokeStyle = `rgba(0, 240, 255, ${Math.max(0.2, 1.0 - markerProgress)})`;
+            fxCtx.lineWidth = 2.5;
+            fxCtx.stroke();
+            fxCtx.restore();
 
-        // 2. 툰 스타일 'TAP!' 3중 레이어 및 그라데이션 텍스트 상시 렌더링 (하단 32px 정렬)
-        fxCtx.save();
-        fxCtx.globalAlpha = 1.0;
-        const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 32;
-        fxCtx.translate(X, Y);
+            // 2. 툰 스타일 'TAP!' 3중 레이어 및 그라데이션 텍스트 상시 렌더링 (하단 32px 정렬)
+            fxCtx.save();
+            fxCtx.globalAlpha = 1.0;
+            const X = STONE_FIXED_X;
+            const Y = STONE_FIXED_Y + 32;
+            fxCtx.translate(X, Y);
 
-        let scale = 1.0;
-        if (markerProgress >= 0.88 && markerProgress <= 1.0) {
-            scale = 1.2 + Math.sin(Date.now() * 0.02) * 0.1;
-        }
-        fxCtx.scale(scale, scale);
+            let scale = 1.0;
+            if (markerProgress >= 0.88 && markerProgress <= 1.0) {
+                scale = 1.2 + Math.sin(Date.now() * 0.02) * 0.1;
+            }
+            fxCtx.scale(scale, scale);
 
-        fxCtx.font = '900 22px "Impact", "Arial Black", sans-serif';
-        fxCtx.textAlign = 'center';
-        fxCtx.textBaseline = 'middle';
+            fxCtx.font = '900 22px "Impact", "Arial Black", sans-serif';
+            fxCtx.textAlign = 'center';
+            fxCtx.textBaseline = 'middle';
 
-        // 1단계: 최외곽 섀도우 뇌선
-        fxCtx.strokeStyle = '#3b0712';
-        fxCtx.lineWidth = 6;
-        fxCtx.strokeText('TAP!', 0, 0);
+            // 1단계: 최외곽 섀도우 뇌선
+            fxCtx.strokeStyle = '#3b0712';
+            fxCtx.lineWidth = 6;
+            fxCtx.strokeText('TAP!', 0, 0);
 
-        // 2단계: 인라인 오렌지 림
-        fxCtx.strokeStyle = '#f97316';
-        fxCtx.lineWidth = 3;
-        fxCtx.strokeText('TAP!', 0, 0);
+            // 2단계: 인라인 오렌지 림
+            fxCtx.strokeStyle = '#f97316';
+            fxCtx.lineWidth = 3;
+            fxCtx.strokeText('TAP!', 0, 0);
 
-        // 3단계: 불타는 옐로-레드 그라데이션 필
-        const grad = fxCtx.createLinearGradient(0, -10, 0, 10);
-        grad.addColorStop(0, '#fde047');  // 상단 밝은 황금 노란색
-        grad.addColorStop(0.4, '#eab308'); // 중간 주황 골드
-        grad.addColorStop(1, '#dc2626');  // 하단 붉은색
-        fxCtx.fillStyle = grad;
-        fxCtx.fillText('TAP!', 0, 0);
-        fxCtx.restore();
+            // 3단계: 불타는 옐로-레드 그라데이션 필
+            const grad = fxCtx.createLinearGradient(0, -10, 0, 10);
+            grad.addColorStop(0, '#fde047');  // 상단 밝은 황금 노란색
+            grad.addColorStop(0.4, '#eab308'); // 중간 주황 골드
+            grad.addColorStop(1, '#dc2626');  // 하단 붉은색
+            fxCtx.fillStyle = grad;
+            fxCtx.fillText('TAP!', 0, 0);
+            fxCtx.restore();
 
-        // 3. PERFECT 구간 스파크 파티클 연동 (하단 32px 정합성 보정)
-        if (markerProgress >= 0.88 && markerProgress <= 1.0) {
-            const sparkCount = Math.random() < 0.5 ? 1 : 2;
-            for (let i = 0; i < sparkCount; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 2 + 1;
-                const size = Math.random() * 3 + 2;
-                const colors = ['#fde047', '#eab308', '#f97316', '#dc2626'];
-                particles.push({
-                    x: STONE_FIXED_X + (Math.random() - 0.5) * 40,
-                    y: STONE_FIXED_Y + 32 + (Math.random() - 0.5) * 15,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed - 1,
-                    size: size,
-                    alpha: 1.0,
-                    decay: Math.random() * 0.04 + 0.03,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    update() {
-                        this.x += this.vx;
-                        this.y += this.vy;
-                        this.alpha -= this.decay;
-                    },
-                    draw(ctx) {
-                        ctx.save();
-                        ctx.globalAlpha = Math.max(0, this.alpha);
-                        ctx.fillStyle = this.color;
-                        ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
-                        ctx.restore();
-                    }
-                });
+            // 3. PERFECT 구간 스파크 파티클 연동 (하단 32px 정합성 보정)
+            if (markerProgress >= 0.88 && markerProgress <= 1.0) {
+                const sparkCount = Math.random() < 0.5 ? 1 : 2;
+                for (let i = 0; i < sparkCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 2 + 1;
+                    const size = Math.random() * 3 + 2;
+                    const colors = ['#fde047', '#eab308', '#f97316', '#dc2626'];
+                    particles.push({
+                        x: STONE_FIXED_X + (Math.random() - 0.5) * 40,
+                        y: STONE_FIXED_Y + 32 + (Math.random() - 0.5) * 15,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 1,
+                        size: size,
+                        alpha: 1.0,
+                        decay: Math.random() * 0.04 + 0.03,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        update() {
+                            this.x += this.vx;
+                            this.y += this.vy;
+                            this.alpha -= this.decay;
+                        },
+                        draw(ctx) {
+                            ctx.save();
+                            ctx.globalAlpha = Math.max(0, this.alpha);
+                            ctx.fillStyle = this.color;
+                            ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+                            ctx.restore();
+                        }
+                    });
+                }
             }
         }
     }
