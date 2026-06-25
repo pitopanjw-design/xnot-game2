@@ -276,6 +276,8 @@ let stone = { x:0, y:0, z:0, vx:0, vy:0, vz:0, activePhys:null, isCrit:false, is
 const GRAVITY = 0.16;
 let swipeSpeed = 0;
 let markerProgress = 0; // 리듬게임형 가외 수축 마커 진행도
+let tapWindowStart = 0; // 타임어택 윈도우 시작 시간
+let isWindowActive = false; // 타임어택 윈도우 가동 상태 유무
 
 // 화면 포지션 기준점
 let W = window.innerWidth, H = window.innerHeight;
@@ -790,6 +792,8 @@ function triggerLaunch(dy, dx) {
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
     markerProgress = 0; // 발사 시 마커 진행도 초기화
+    isWindowActive = false; // 타임어택 윈도우 상태 리셋
+    tapWindowStart = 0;
     for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
 
     currentStatus = 'FLYING'; isPlaying = true;
@@ -879,16 +883,19 @@ function updatePhysics() {
     layerProgress += stone.vy * 0.00008;
     stone.y += stone.vy; stone.z += stone.vz; stone.vz -= GRAVITY;
 
-    // 돌이 날아가고 있는 비행 상태 전체에서 markerProgress가 매 프레임 일정하게 증가 (홀수 차수 전용)
+    // [0.5초 타임어택 TAP! 시스템] 홀수 차수(bounceCount % 2 === 0) 낙하 시작(stone.vz < 0) 정밀 포착
     if (currentStatus === 'FLYING' && !isDead) {
         const isNextOdd = (bounceCount % 2 === 0);
-        if (isNextOdd) {
-            markerProgress += 0.015; // 쫀득한 리듬감을 위한 최적의 기어비
-            if (markerProgress >= 1.0) {
-                markerProgress = 0;
+        if (isNextOdd && stone.vz < 0) {
+            if (!isWindowActive) {
+                tapWindowStart = Date.now();
+                isWindowActive = true;
             }
-        } else {
-            markerProgress = 0; // 짝수 차수에는 가이드를 강제로 0으로 비활성화
+        }
+        
+        // 타임 윈도우가 가동 중이고 500ms가 경과하면 가이드 즉시 소멸
+        if (isWindowActive && (Date.now() - tapWindowStart > 500)) {
+            isWindowActive = false;
         }
     }
 
@@ -967,8 +974,9 @@ function registerBounceTap(e) {
     tapsInCurrentCycle = 1;
 
     let rating = 'BAD';
-    // 0.88 <= markerProgress <= 1.00 범위 내 적중 시 PERFECT, 그 외에는 BAD
-    if (markerProgress >= 0.88 && markerProgress <= 1.00) {
+    // [0.5초 타임어택 판정] 윈도우가 열려 있고 500ms 이내에 탭한 경우 PERFECT, 그 외에는 BAD
+    if (isWindowActive && (Date.now() - tapWindowStart <= 500)) {
+        isWindowActive = false; // 중복 터치 방지
         rating = 'PERFECT';
     } else {
         rating = 'BAD';
@@ -1228,30 +1236,25 @@ function drawFxCanvas() {
     for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.update(); p.draw(fxCtx); if (p.alpha<=0) particles.splice(i,1); }
 
     if (currentStatus==='FLYING' && !isDead) {
-        const isNextOdd = (bounceCount % 2 === 0);
-        if (isNextOdd) {
-            // 1. 역방향 수면 물결(Ripple) 통합형 탭 마커 렌더링
-            const rx = 90 * (1.0 - markerProgress);
-            const ry = 36 * (1.0 - markerProgress);
+        // [0.5초 타임어택] 타임 윈도우가 활성화되어 있을 때만 돌 머리 위 45px 영역에 TAP! 자막 상시 드로잉
+        if (isWindowActive) {
+            const X = STONE_FIXED_X;
+            const stoneY = STONE_FIXED_Y - (isDead ? stone.z*2 : stone.z * 1.8);
+            const Y = stoneY - 45; // 돌의 실시간 그래픽 Y 좌표 대비 45픽셀 위
 
-            fxCtx.save();
-            fxCtx.beginPath();
-            fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rx, ry, 0, 0, Math.PI * 2);
-            fxCtx.strokeStyle = `rgba(0, 240, 255, ${Math.max(0.2, 1.0 - markerProgress)})`;
-            fxCtx.lineWidth = 2.5;
-            fxCtx.stroke();
-            fxCtx.restore();
+            const elapsed = Date.now() - tapWindowStart;
+            const ratio = Math.max(0, Math.min(1.0, (500 - elapsed) / 500));
 
-            // 2. 툰 스타일 'TAP!' 3중 레이어 및 그라데이션 텍스트 상시 렌더링 (하단 32px 정렬)
             fxCtx.save();
             fxCtx.globalAlpha = 1.0;
-            const X = STONE_FIXED_X;
-            const Y = STONE_FIXED_Y + 32;
             fxCtx.translate(X, Y);
 
-            let scale = 1.0;
-            if (markerProgress >= 0.88 && markerProgress <= 1.0) {
-                scale = 1.2 + Math.sin(Date.now() * 0.02) * 0.1;
+            // 500ms 타이머 끝자락에 도달할수록 작아지며 빠르게 깜빡이는 압박 효과 연출
+            let scale = 1.0 + ratio * 0.3;
+            if (elapsed > 350) {
+                if (Math.floor(Date.now() / 50) % 2 === 0) {
+                    scale = 0; // 빠른 깜빡임 잔상
+                }
             }
             fxCtx.scale(scale, scale);
 
@@ -1278,8 +1281,8 @@ function drawFxCanvas() {
             fxCtx.fillText('TAP!', 0, 0);
             fxCtx.restore();
 
-            // 3. PERFECT 구간 스파크 파티클 연동 (하단 32px 정합성 보정)
-            if (markerProgress >= 0.88 && markerProgress <= 1.0) {
+            // PERFECT 타임어택 툰 감성 연출을 보조하는 주황/노랑 스파크 파티클 방출 (돌 머리 주변)
+            if (Math.random() < 0.4) {
                 const sparkCount = Math.random() < 0.5 ? 1 : 2;
                 for (let i = 0; i < sparkCount; i++) {
                     const angle = Math.random() * Math.PI * 2;
@@ -1287,8 +1290,8 @@ function drawFxCanvas() {
                     const size = Math.random() * 3 + 2;
                     const colors = ['#fde047', '#eab308', '#f97316', '#dc2626'];
                     particles.push({
-                        x: STONE_FIXED_X + (Math.random() - 0.5) * 40,
-                        y: STONE_FIXED_Y + 32 + (Math.random() - 0.5) * 15,
+                        x: X + (Math.random() - 0.5) * 40,
+                        y: Y + (Math.random() - 0.5) * 15,
                         vx: Math.cos(angle) * speed,
                         vy: Math.sin(angle) * speed - 1,
                         size: size,
