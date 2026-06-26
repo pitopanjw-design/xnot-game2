@@ -15,6 +15,7 @@ const SoundManager = {
             this.isMuted = saved === 'true';
             this.masterGain.gain.value = this.isMuted ? 0 : 0.6;
 
+            // BGM 오디오 객체 동적 생성 및 노드 연동
             this.bgm = new Audio('audio/bgm_lobby.mp3');
             this.bgm.loop = true;
             this.bgmGain = this.ctx.createGain();
@@ -93,7 +94,7 @@ const SoundManager = {
             });
         }
     },
-    playSink() { this.resume(); for(let i=0;i<3;i++) { const d=i*0.08; setTimeout(()=>this._play(180-i*35,'sine',0.14,0.25,40), d*1000); } },
+    playSink() { this.resume(); for(let i=0;i<3;i++) { const d=i*0.08; setTimeout(()=>this._play(180-i*35,'sine',0.14,0.25,40),d*1000); } },
     playUpgrade() { this.resume(); this._play(523,'sine',0.12,0.15); setTimeout(()=>this._play(659,'sine',0.18,0.15),100); },
     playFanfare() {
         this.resume();
@@ -241,7 +242,7 @@ let angleTimerId = null;
 let animFrameId = null;
 
 let stone = { x:0, y:0, z:0, vx:0, vy:0, vz:0, activePhys:null, isCrit:false, isLotto:false };
-const GRAVITY = 0.16; // 포물선 궤적 확보를 위해 순정 0.16 복구
+const GRAVITY = 0.16; // 포물선 비행 유도를 위해 0.16 복구 고정
 let swipeSpeed = 0;
 let markerProgress = 0; 
 let tapWindowStart = 0; 
@@ -501,7 +502,6 @@ function getAngleZone(angleVal) {
     return 'YELLOW';
 }
 
-// 5단 배칭 영역 무결성 디스플레이 가동
 function updateGaugePerfectZone() {
     const perfSize = Math.min(0.10, 0.05 + ((upgrades.perfectZone || 0) * 0.005));
     const bg = document.getElementById('angle-gauge-bg'); if (!bg) return;
@@ -612,11 +612,3 @@ function triggerLaunch(dy, dx) {
 
     let ap=null, isCrit=false, isLotto=false; const ss = selectedStone;
     if (ss.rarity==='Mythic') {
-        if (window.forceLotto || Math.random()<ss.physics.lottoChance) { ap=JSON.parse(JSON.stringify(ss.physics.lottoPhysics)); isLotto=true; }
-        else {
-            const ref = Math.random()<0.5 ? STONES[0] : STONES[2];
-            if (ref===STONES[2] && (window.forceCrit||Math.random()<ref.physics.critChance)) { ap=JSON.parse(JSON.stringify(ref.physics.critPhysics)); isCrit=true; }
-            else { ap=JSON.parse(JSON.stringify(ref.physics)); if (window.forceCrit||Math.random()<(ap.critChance||0)) isCrit=true; }
-        }
-    } else if (ss.rarity==='Legendary') {
-        if (window.forceCrit||Math.random()<ss.physics.critChance) { ap=JSON.parse(
