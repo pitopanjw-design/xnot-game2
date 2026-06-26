@@ -867,10 +867,16 @@ function runGameLoop() {
 //  ⚙️ 고정식 2.5D 스크롤 물리 계산 파이프라인
 // ===========================================================
 function updatePhysics() {
-    if (isDead) {
-        stone.vz -= GRAVITY*0.5; stone.z += stone.vz;
-        // 침수 함수 내의 setTimeout에서 1초 뒤 endGame()을 직접 제어하므로 물리 엔진 자동 호출은 제거합니다.
-        applyStonePos(); return;
+    if (!isDead) {
+        stone.z += stone.vz;
+        stone.vz -= GRAVITY; // GRAVITY 전역 상수(0.24)만 깔끔하게 단일 적용
+        stone.x += stone.vx;
+        stone.y += stone.vy;
+    } else {
+        stone.vz -= GRAVITY * 0.5;
+        stone.z += stone.vz;
+        applyStonePos();
+        return;
     }
 
     rippleLayers.forEach(l => { l.z += stone.vy*0.0007; if (l.z>=1.0) l.z -= 1.0; });
@@ -881,10 +887,6 @@ function updatePhysics() {
     }
 
     layerProgress += stone.vy * 0.00008;
-    stone.z += stone.vz; // 수직 위치에 수직 속도 더하기
-    stone.vz -= 0.22;    // 중력 가속도(GRAVITY) 상수를 프레임마다 누적 차감하여 완벽한 하향 포물선 유도
-    stone.x += stone.vx; // 수평 X축 이동
-    stone.y += stone.vy; // 수평 Y축 이동 (vy가 폭주하지 않으므로 정상 범위 내에서 전진)
 
     // [0.5초 타임어택 TAP! 시스템] 홀수 차수(bounceCount % 2 === 0) 낙하 시작(stone.vz < 0) 정밀 포착
     if (currentStatus === 'FLYING' && !isDead) {
@@ -902,13 +904,10 @@ function updatePhysics() {
         }
     }
 
-    const wm = 1+(upgrades.weight*0.0008); const sfm = 1+(swipeSpeed*0.0001);
-    const fr = stone.activePhys ? stone.activePhys.friction : 0.978;
-    const baseFr = Math.min(0.9998, fr*wm*sfm);
-    const k = 0.04;
-    const effectiveFriction = 0.985 + (baseFr - 0.985) * Math.exp(-k * stone.vy);
-    stone.vy *= effectiveFriction;
-    stone.vx *= Math.min(0.999, 0.99*wm);
+    if (!isDead) {
+        stone.vy *= 0.994; // 완만한 공기 저항 브레이크
+        stone.vx *= 0.99;
+    }
 
     // 방치형 자동 바운스: 유저가 탭하지 않은 상태에서 수면에 닿으면 GOOD 판정으로 자동 바운스
     if (stone.vz < 0 && stone.z <= 0 && !hasTappedBounce && !isDead) {
@@ -1012,7 +1011,7 @@ function processBounce(rating, isAuto = false) {
 
     if (rating==='PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
-        stone.vy = stone.vy * 0.95; // 람보르기니 폭주 방지를 위해 미세 감속 및 속도 보존 처리
+        stone.vy = stone.vy * 0.92; // 전진 속도는 기존 속도를 최대한 보존하되 수면 저항을 받아 미세 감속합니다
         const earned = Math.round(100*selectedStone.mult*2.5);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
@@ -1023,7 +1022,11 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        stone.vy = stone.vy * (sp.vyDecay || 0.88); // 확실한 수면 마찰 저항 주입
+        if (selectedStone.id === 2) {
+            stone.vy = stone.vy * 0.75;
+        } else {
+            stone.vy = stone.vy * 0.82;
+        }
         const earned = Math.round(100*selectedStone.mult*1.2);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
@@ -1033,7 +1036,11 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else {
         baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
-        stone.vy = stone.vy * (sp.vyDecay || 0.88); // 확실한 수면 마찰 저항 주입
+        if (selectedStone.id === 2) {
+            stone.vy = stone.vy * 0.75;
+        } else {
+            stone.vy = stone.vy * 0.82;
+        }
         const earned = Math.round(100*selectedStone.mult*0.4);
         if (!isAuto) {
             document.getElementById('message').innerText = t('badTiming');
