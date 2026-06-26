@@ -1042,24 +1042,28 @@ function processBounce(rating, isAuto = false) {
     const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
     setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    let hBoost = rating === 'PERFECT' ? 1.5 : 1.0;
-    let customVzDecay = sp.vzDecay || 0.83;
-    let customBaseVz = baseVz;
+    const zone = getAngleZone(launchAngle);
+    let zM = 1;
+    if (zone === 'PERFECT') { zM = 1.25; } 
+    else if (zone === 'SAFETY') { zM = 1.08; }
 
-    // 고밀도 현무암(id:2) 퍼펙트 저격 시 물리학 스펙 강제 튠업
-    if (selectedStone.id === 2 && rating === 'PERFECT') {
-        hBoost = 2.4;               // 일반 돌(1.5배)보다 훨씬 강한 2.4배 수직 계수 폭발
-        customVzDecay = 0.88;       // 감쇠율을 슬레이트급으로 일시 완화
-        customBaseVz = 1.3;         // 기본 고도 시작점을 대폭 상향
-    }
-
-    const bdec = Math.pow(rating === 'PERFECT' ? Math.min(0.98, customVzDecay + 0.12) : customVzDecay, bounceCount - 1);
-    const sbns = 1+(swipeSpeed/30);
-    const zone = getAngleZone(launchAngle); let zM=1, zvB=0;
-    if (zone==='PERFECT') { zM=1.25; zvB=0.2; } else if (zone==='SAFETY') { zM=1.08; zvB=0.05; }
-
+    const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
     stone.z = 0.1;
-    stone.vz = (customBaseVz + zvB) * em * sbns * bdec * hBoost;
+
+    if (rating === 'PERFECT') {
+        // 퍼펙트 적중 시 수평 속도(vy) 가속은 유지하되, 위로 튀는 높이(vz)는 기존 기준치들의 정확히 절반(0.5)으로 제어하여 컴팩트하게 튀게 만듭니다.
+        if (selectedStone.id === 2) {
+            // 고밀도 현무암(id:2) PERFECT 적중 시 2.4배 특수 고도 폭발 공식 보존
+            const basaltBdec = Math.pow(0.88, bounceCount - 1);
+            stone.vz = (1.3 * 0.5) * basaltBdec * 2.4;
+        } else {
+            stone.vz = ((sp.baseVz || 1.5) * 0.5) * bdec;
+        }
+    } else if (rating === 'GOOD') {
+        stone.vz = (sp.baseVz || 1.5) * 0.8 * bdec;
+    } else {
+        stone.vz = (sp.baseVz || 1.5) * 0.22 * bdec;
+    }
     const vdec = Math.pow(sp.vyDecay||0.92, bounceCount-1);
     if (rating === 'BAD') {
         stone.vy *= 0.40;
@@ -1102,17 +1106,33 @@ function showTrollPopup() {
 }
 
 function triggerWaterMiss() {
-    if (isDead) return; // 중복 실행 방지
+    if (isDead) return;
     isDead = true;
     stone.vz = -3;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
-    spawnRatingText(ex,ey,'MISS'); spawnRipple(ex,ey); createParticles(ex,ey,false,true,22);
-    document.getElementById('message').innerText = t('missMsg'); haptic('error'); SoundManager.playSink();
-
-    showTrollPopup();
     
-    // 💡 캡틴의 명세: 1초간 홀딩 후 정산창 진입
+    spawnRatingText(ex, ey, 'MISS');
+    spawnRipple(ex, ey);
+    createParticles(ex, ey, false, true, 22);
+    document.getElementById('message').innerText = t('missMsg');
+    haptic('error');
+    SoundManager.playSink();
+
+    // 💡 [킹받는 팝업 박스 동적 주입 코어]
+    const trollBox = document.createElement('div');
+    trollBox.style.cssText = 'position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);background:rgba(15,23,42,0.95);border:3px solid #ef4444;border-radius:24px;padding:25px;text-align:center;z-index:9999;box-shadow:0 0 30px rgba(239,68,68,0.6);transition:all 0.3s ease;pointer-events:none;';
+    
+    const roastMsgs = [
+        "🦭<br>물수제비가 아니라<br>그냥 돌덩이 투척인 줄!",
+        "🐟<br>축하합니다!<br>물고기 밥 주기 성공!",
+        "🥱<br>혹시 졸면서 던지셨나요?<br>(퐁당)"
+    ];
+    trollBox.innerHTML = `<p style="color:#fff;font-size:16px;font-weight:900;line-height:1.5;margin:0;font-family:'Impact',sans-serif;text-shadow:0 2px 4px #000;">${roastMsgs[Math.floor(Math.random() * roastMsgs.length)]}</p>`;
+    document.getElementById('game-container').appendChild(trollBox);
+
+    // 1초 동안 확실하게 멘트를 보여주어 유저를 약올린 뒤 정산 및 리셋 처리
     setTimeout(() => {
+        trollBox.remove();
         endGame();
     }, 1000);
 }
