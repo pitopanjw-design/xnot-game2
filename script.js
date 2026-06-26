@@ -946,29 +946,34 @@ function applyStonePos() {
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 짝수 회차 휴식기에 터치하거나, 자막이 뜨지 않은 조기 입력(Early) 상태인 경우
-    if (bounceCount % 2 !== 0 || !isWindowActive) {
-        // 즉시 사망(triggerWaterMiss) 시키지 않고, 타이밍 믹스 패널티(BAD)만 준 채 물 위로 튕겨내 구제합니다.
-        hasTappedBounce = true;
-        isWindowActive = false;
-        processBounce('BAD', false);
+    // 🛑 1차 처벌: 짝수 회차(휴식기)에 화면을 건드리면 연타 꼼수로 간주, 즉시 미스 사망!
+    if (bounceCount % 2 !== 0) {
+        triggerWaterMiss();
         return;
     }
 
+    // 🛑 2차 처벌: 홀수 회차 낙하 중이라도, 아직 머리 위에 'TAP!' 자막이 안 떴는데 미리 누르면 조기 연타로 즉시 미스 사망!
+    if (!isWindowActive) {
+        triggerWaterMiss();
+        return;
+    }
+
+    // 이미 이번 낙하 주기에서 정상 탭을 처리한 경우 중복 차단
     if (hasTappedBounce) return;
+    
     const elapsed = Date.now() - tapWindowStart;
 
-    // 대안 A: 700ms 이내에 정확히 적중한 경우 -> 완벽한 PERFECT
-    if (isWindowActive && elapsed <= 700) {
+    // ✨ [PERFECT 적중]: 700ms 이내에 정확히 반응한 경우 -> 고도 폭발 버프 가동
+    if (elapsed <= 700) {
         hasTappedBounce = true;
-        isWindowActive = false;
+        isWindowActive = false; // 윈도우 잠금
         processBounce('PERFECT', false);
     } 
-    // 700ms를 초과한 뒷북 터치(Late)인 경우 -> 즉시 사망 대신 구제
+    // 🛡️ [뒷북 구제]: 자막이 뜬 걸 보고 눌렀으나 0.7초를 아쉽게 초과한 경우 -> 즉시 사망 대신 BAD로 구제 통과
     else {
         hasTappedBounce = true;
         isWindowActive = false;
-        processBounce('BAD', false); // 즉시 사망 대신 기회를 한 번 더 줌
+        processBounce('BAD', false);
     }
 }
 
