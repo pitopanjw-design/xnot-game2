@@ -175,36 +175,7 @@ function initLang() {
     currentLang = i18n[lang] ? lang : 'en';
 }
 function t(k) { return (i18n[currentLang]?.[k]) || (i18n['en']?.[k]) || k; }
-function applyI18n() {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        const k=el.getAttribute('data-i18n');
-        if(t(k)!==k) el.innerText=t(k);
-    });
-
-    // 인트로 화면 버튼 강제 다국어 렌더링
-    const introStart = document.getElementById('intro-start-btn');
-    if (introStart) introStart.innerText = t('introStartBtn');
-
-    const introInfo = document.getElementById('intro-info-btn');
-    if (introInfo) introInfo.innerText = t('introInfoBtn');
-
-    // 하단 상점 및 메인 액션 버튼 렌더링
-    const shopBtn = document.getElementById('shop-btn');
-    if (shopBtn) shopBtn.innerText = t('shopBtn');
-
-    const mainBtn = document.getElementById('main-btn');
-    if (mainBtn) mainBtn.innerText = t('spinBtn');
-
-    // HUD 및 가이드 텍스트 초기화 매핑
-    const message = document.getElementById('message');
-    if (message) message.innerText = t('prepareMsg');
-
-    const scoreDisp = document.getElementById('score-display');
-    if (scoreDisp) scoreDisp.innerText = t('ready');
-
-    const swipeGuide = document.getElementById('swipe-guide');
-    if (swipeGuide) swipeGuide.innerText = t('swipeGuide');
-}
+function applyI18n() { document.querySelectorAll('[data-i18n]').forEach(el => { const k=el.getAttribute('data-i18n'); if(t(k)!==k) el.innerText=t(k); }); }
 
 // ===========================================================
 //  📳 텔레그램 햅틱 진동 피드백
@@ -256,7 +227,6 @@ const STONES = [
 let playerHearts = 5;
 let playerSP = 0;
 let upgrades = { weight:0, elasticity:0, spin:0 };
-let gaugeSpeedMult = 2.0;
 const UPGRADE_BASE_COST = 300, MAX_LV = 10;
 
 let selectedStone = null;
@@ -273,11 +243,8 @@ let animFrameId = null;
 
 // 실시간 3축 물리학 벡터
 let stone = { x:0, y:0, z:0, vx:0, vy:0, vz:0, activePhys:null, isCrit:false, isLotto:false };
-const GRAVITY = 0.24;
+const GRAVITY = 0.16;
 let swipeSpeed = 0;
-let markerProgress = 0; // 리듬게임형 가외 수축 마커 진행도
-let tapWindowStart = 0; // 타임어택 윈도우 시작 시간
-let isWindowActive = false; // 타임어택 윈도우 가동 상태 유무
 
 // 화면 포지션 기준점
 let W = window.innerWidth, H = window.innerHeight;
@@ -579,7 +546,6 @@ function playSeamlessTransition() {
 //  🕹️ 인게임 진입 및 조작 인터페이스 활성화
 // ===========================================================
 function startGameplay() {
-    gaugeSpeedMult = 2.0;
     setStoneStyle();
     const stoneEl = document.getElementById('ingame-stone');
     stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
@@ -614,81 +580,34 @@ function setStoneStyle() {
 // ===========================================================
 //  📐 삼각함수 보정 각도 피치 게이지
 // ===========================================================
-function getAngleZone(angleVal) {
-    const perfSize = Math.min(0.10, 0.05 + ((upgrades.perfectZone || 0) * 0.005));
-    const pMin = 0.5 - (perfSize / 2);
-    const pMax = 0.5 + (perfSize / 2);
-
-    if ((angleVal >= 0.00 && angleVal <= 0.01) || (angleVal >= 0.99 && angleVal <= 1.00)) {
-        return 'EASTEREG';
-    }
-    if ((angleVal > 0.01 && angleVal <= 0.06) || (angleVal >= 0.94 && angleVal < 0.99)) {
-        return 'RED';
-    }
-    if (angleVal >= pMin && angleVal <= pMax) {
-        return 'PERFECT';
-    }
-    if ((angleVal >= pMin - 0.15 && angleVal < pMin) || (angleVal > pMax && angleVal <= pMax + 0.15)) {
-        return 'GREEN';
-    }
-    return 'YELLOW';
+function getAngleZone(angle) {
+    const sr = (2+upgrades.spin*0.8)*(2/3);
+    const remH = 15-sr; const safeR = remH*0.6, redR = remH*0.4;
+    if (angle>=20-sr && angle<=20+sr) return 'PERFECT';
+    if ((angle>=5+redR && angle<20-sr)||(angle>20+sr && angle<=20+sr+safeR)) return 'SAFETY';
+    return 'RED';
 }
 
 function updateGaugePerfectZone() {
-    const perfSize = Math.min(0.10, 0.05 + ((upgrades.perfectZone || 0) * 0.005));
-    const bg = document.getElementById('angle-gauge-bg');
-    if (!bg) return;
-
-    // 이스터에그 영역 동적 생성 (index.html 수정을 피하고 무결성 확보)
-    let easterBot = document.getElementById('gz-easter-bot');
-    if (!easterBot) {
-        easterBot = document.createElement('div');
-        easterBot.className = 'gauge-zone';
-        easterBot.id = 'gz-easter-bot';
-        easterBot.style.background = 'rgba(255, 215, 0, 0.7)';
-        easterBot.style.borderTop = '1px dashed var(--neon-gold)';
-        easterBot.style.borderBottom = '1px dashed var(--neon-gold)';
-        bg.appendChild(easterBot);
-    }
-    let easterTop = document.getElementById('gz-easter-top');
-    if (!easterTop) {
-        easterTop = document.createElement('div');
-        easterTop.className = 'gauge-zone';
-        easterTop.id = 'gz-easter-top';
-        easterTop.style.background = 'rgba(255, 215, 0, 0.7)';
-        easterTop.style.borderTop = '1px dashed var(--neon-gold)';
-        easterTop.style.borderBottom = '1px dashed var(--neon-gold)';
-        bg.appendChild(easterTop);
-    }
-
-    const set = (id, bot, h) => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.style.bottom = `${bot}%`;
-            el.style.height = `${h}%`;
-        }
-    };
-
-    set('gz-easter-bot', 0, 1);
-    set('gz-red-bot', 1, 5);
-    set('gz-safe-bot', (0.5 - perfSize / 2 - 0.15) * 100, 15);
-    set('gz-perfect', (0.5 - perfSize / 2) * 100, perfSize * 100);
-    set('gz-safe-top', (0.5 + perfSize / 2) * 100, 15);
-    set('gz-red-top', 94, 5);
-    set('gz-easter-top', 99, 1);
+    const sr = (2+upgrades.spin*0.8)*(2/3);
+    const remH=15-sr, safeR=remH*0.6, redR=remH*0.4;
+    const set=(id,bot,h)=>{ const el=document.getElementById(id); el.style.bottom=`${bot}%`; el.style.height=`${h}%`; };
+    set('gz-red-bot',  ((5-5)/30)*100, (redR/30)*100);
+    set('gz-safe-bot', ((5+redR-5)/30)*100, (safeR/30)*100);
+    const pBot=((20-sr-5)/30)*100, pH=((sr*2)/30)*100;
+    const pEl=document.getElementById('gz-perfect');
+    pEl.style.bottom=`${pBot}%`; pEl.style.height=`${pH}%`;
+    set('gz-safe-top', ((20+sr-5)/30)*100, (safeR/30)*100);
+    set('gz-red-top',  ((20+sr+safeR-5)/30)*100, (redR/30)*100);
 }
 
 function startAngleGauge() {
     angleVal=0.5; angleDir=1;
     const tick = () => {
         if (currentStatus!=='READY_TO_LAUNCH') return;
-        angleVal += angleDir*0.010*gaugeSpeedMult;
+        angleVal += angleDir*0.010;
         if (angleVal>=1) { angleVal=1; angleDir=-1; }
-        else if (angleVal<=0) { 
-            angleVal=0; 
-            angleDir=1; 
-            gaugeSpeedMult = Math.min(3.0, parseFloat((gaugeSpeedMult + 0.2).toFixed(1)));
-        }
+        else if (angleVal<=0) { angleVal=0; angleDir=1; }
         document.getElementById('gauge-bar').style.height = `${angleVal*100}%`;
         document.getElementById('gauge-marker').style.bottom = `${angleVal*100}%`;
         launchAngle = 5+angleVal*30;
@@ -765,12 +684,7 @@ function triggerLaunch(dy, dx) {
     stone.vz = (swipeSpeed*Math.sin(rad)*0.75)*distFact;
     stone.vx = ((dx/dur)*2)*distFact;
 
-    let zone = getAngleZone(angleVal);
-
-    // [하이퍼 조건] 최고 속도 도달 상태에서 PERFECT 적중 시 강제 EASTEREG 판정 (소수점 오차 차단)
-    if (gaugeSpeedMult >= 3.0 && zone === 'PERFECT') {
-        zone = 'EASTEREG';
-    }
+    const zone = getAngleZone(launchAngle);
 
     let ap=null, isCrit=false, isLotto=false; const ss = selectedStone;
     if (ss.rarity==='Mythic') {
@@ -791,65 +705,24 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
-    markerProgress = 0; // 발사 시 마커 진행도 초기화
-    isWindowActive = false; // 타임어택 윈도우 상태 리셋
-    tapWindowStart = 0;
     for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
 
     currentStatus = 'FLYING'; isPlaying = true;
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
 
     SoundManager.playLaunch(swipeSpeed);
-
-    let mult = 1.0;
-    if (zone === 'EASTEREG') {
-        mult = 2.0;
-        if (gaugeSpeedMult >= 3.0) {
-            document.getElementById('message').innerText = "⚡ MAX SPEED HYPER DRIVE! ⚡";
-        } else {
-            document.getElementById('message').innerText = "⚡ 하이퍼 드라이브 발사! ⚡";
-        }
-        spawnDramaticText("HYPER DRIVE!", 'neon-gold');
-        triggerShake('heavy');
-
-        // (순정 플래시 연출 유지)
-        const flash = document.createElement('div');
-        flash.style.cssText = 'position:absolute;inset:0;background:rgba(255,215,0,0.4);z-index:250;pointer-events:none;animation:fade-flash 0.5s ease forwards;';
-        document.getElementById('game-container').appendChild(flash);
-        setTimeout(() => { flash.remove(); }, 520);
-
+    if (swipeSpeed>=30) {
+        document.getElementById('message').innerText = `⚡ ${t('lightningLaunch')} ⚡`;
+        spawnDramaticText(t('lightningLaunch'), 'neon-gold'); triggerShake('heavy');
     } else if (zone === 'PERFECT') {
-        const stoneRandom = 0.9 + Math.random() * 0.2;
-        const swipeWeight = 1.0 + (swipeSpeed * 0.01);
-        mult = 1.5 * stoneRandom * swipeWeight;
         document.getElementById('message').innerText = "✨ PERFECT LAUNCH! ✨";
-        spawnDramaticText("PERFECT LAUNCH!", 'neon-lime');
-        triggerShake('medium');
-
-    } else if (zone === 'GREEN') {
-        mult = 1.2;
-        document.getElementById('message').innerText = "👍 안정적인 그린 발사";
+        spawnDramaticText("PERFECT LAUNCH!", 'neon-lime'); triggerShake('medium');
+    } else if (zone === 'SAFETY') {
+        document.getElementById('message').innerText = "👍 안정적인 발사";
         haptic('medium');
-
-    } else if (zone === 'RED') {
-        mult = 0.0;
-        stone.vy = 0;
-        stone.vz = 0;
-        haptic('error');
-        triggerWaterMiss();
-        document.getElementById('message').innerText = "❌ MISS! 투척 실패";
-
     } else {
-        mult = 1.0;
-        document.getElementById('message').innerText = t('normalLaunch');
-        haptic('medium');
+        document.getElementById('message').innerText = t('normalLaunch'); haptic('medium');
     }
-
-    stone.vy *= mult;
-    stone.vz *= mult;
-
-    // 발사 성공 직후 속도 배율 청소 (초기화)
-    gaugeSpeedMult = 2.0;
 
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, {passive:true});
@@ -867,16 +740,10 @@ function runGameLoop() {
 //  ⚙️ 고정식 2.5D 스크롤 물리 계산 파이프라인
 // ===========================================================
 function updatePhysics() {
-    if (!isDead) {
-        stone.z += stone.vz;
-        stone.vz -= GRAVITY; // GRAVITY 전역 상수(0.24)만 깔끔하게 단일 적용
-        stone.x += stone.vx;
-        stone.y += stone.vy;
-    } else {
-        stone.vz -= GRAVITY * 0.5;
-        stone.z += stone.vz;
-        applyStonePos();
-        return;
+    if (isDead) {
+        stone.vz -= GRAVITY*0.5; stone.z += stone.vz;
+        if (stone.z < -50) { endGame(); return; }
+        applyStonePos(); return;
     }
 
     rippleLayers.forEach(l => { l.z += stone.vy*0.0007; if (l.z>=1.0) l.z -= 1.0; });
@@ -887,27 +754,15 @@ function updatePhysics() {
     }
 
     layerProgress += stone.vy * 0.00008;
+    stone.y += stone.vy; stone.z += stone.vz; stone.vz -= GRAVITY;
 
-    // [0.5초 타임어택 TAP! 시스템] 홀수 차수(bounceCount % 2 === 0) 낙하 시작(stone.vz < 0) 정밀 포착
-    if (currentStatus === 'FLYING' && !isDead) {
-        const isNextOdd = (bounceCount % 2 === 0);
-        if (isNextOdd && stone.vz < 0) {
-            if (!isWindowActive) {
-                tapWindowStart = Date.now();
-                isWindowActive = true;
-            }
-        }
-        
-        // 타임 윈도우가 가동 중이고 700ms가 경과하면 가이드 즉시 소멸
-        if (isWindowActive && (Date.now() - tapWindowStart > 700)) {
-            isWindowActive = false;
-        }
-    }
-
-    if (!isDead) {
-        stone.vy *= 0.994; // 완만한 공기 저항 브레이크
-        stone.vx *= 0.99;
-    }
+    const wm = 1+(upgrades.weight*0.0008); const sfm = 1+(swipeSpeed*0.0001);
+    const fr = stone.activePhys ? stone.activePhys.friction : 0.978;
+    const baseFr = Math.min(0.9998, fr*wm*sfm);
+    const k = 0.04;
+    const effectiveFriction = 0.985 + (baseFr - 0.985) * Math.exp(-k * stone.vy);
+    stone.vy *= effectiveFriction;
+    stone.vx *= Math.min(0.999, 0.99*wm);
 
     // 방치형 자동 바운스: 유저가 탭하지 않은 상태에서 수면에 닿으면 GOOD 판정으로 자동 바운스
     if (stone.vz < 0 && stone.z <= 0 && !hasTappedBounce && !isDead) {
@@ -948,35 +803,38 @@ function applyStonePos() {
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 🛑 1차 처벌: 짝수 회차(휴식기)에 화면을 건드리면 연타 꼼수로 간주, 즉시 미스 사망!
-    if (bounceCount % 2 !== 0) {
-        triggerWaterMiss();
+    // 돌이 상승 중일 때 탭하면 연타/스팸으로 간주하여 패널티를 부여하고 이번 주기의 탭 기회를 박탈
+    if (stone.vz >= 0) {
+        hasTappedBounce = true; // 플래그를 강제로 true로 묶어 연타 차단
+        stone.vy *= 0.40;       // 전진 속도(vy)를 0.40배 이하로 꺾음
+        stone.vz *= 0.40;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
         return;
     }
 
-    // 🛑 2차 처벌: 홀수 회차 낙하 중이라도, 아직 머리 위에 'TAP!' 자막이 안 떴는데 미리 누르면 조기 연타로 즉시 미스 사망!
-    if (!isWindowActive) {
-        triggerWaterMiss();
+    // 이미 이번 낙하 주기에서 탭을 한 상태에서 또 탭한 경우 (연타 패널티)
+    if (hasTappedBounce) {
+        stone.vy *= 0.40;       // 전진 속도(vy)를 0.40배 이하로 꺾음
+        stone.vz *= 0.40;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
         return;
     }
 
-    // 이미 이번 낙하 주기에서 정상 탭을 처리한 경우 중복 차단
-    if (hasTappedBounce) return;
-    
-    const elapsed = Date.now() - tapWindowStart;
+    hasTappedBounce = true;
+    tapsInCurrentCycle = 1;
 
-    // ✨ [PERFECT 적중]: 700ms 이내에 정확히 반응한 경우 -> 고도 폭발 버프 가동
-    if (elapsed <= 700) {
-        hasTappedBounce = true;
-        isWindowActive = false; // 윈도우 잠금
-        processBounce('PERFECT', false);
-    } 
-    // 🛡️ [뒷북 구제]: 자막이 뜬 걸 보고 눌렀으나 0.7초를 아쉽게 초과한 경우 -> 즉시 사망 대신 BAD로 구제 통과
-    else {
-        hasTappedBounce = true;
-        isWindowActive = false;
-        processBounce('BAD', false);
+    const targetRingScale = 1.0 + stone.z / 30;
+
+    let rating = 'BAD';
+    if (targetRingScale >= 0.85 && targetRingScale <= 1.15) {
+        rating = 'PERFECT';
+    } else {
+        rating = 'BAD'; // 15% 오차범위 밖일 때 터치하면 패널티(BAD) 작동
     }
+
+    processBounce(rating, false);
 }
 
 function processBounce(rating, isAuto = false) {
@@ -1011,7 +869,7 @@ function processBounce(rating, isAuto = false) {
 
     if (rating==='PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
-        stone.vy = stone.vy * 0.92; // 전진 속도는 기존 속도를 최대한 보존하되 수면 저항을 받아 미세 감속합니다
+        stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5);
         const earned = Math.round(100*selectedStone.mult*2.5);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
@@ -1022,11 +880,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        if (selectedStone.id === 2) {
-            stone.vy = stone.vy * 0.75;
-        } else {
-            stone.vy = stone.vy * 0.82;
-        }
+        stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5);
         const earned = Math.round(100*selectedStone.mult*1.2);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
@@ -1036,11 +890,6 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else {
         baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
-        if (selectedStone.id === 2) {
-            stone.vy = stone.vy * 0.75;
-        } else {
-            stone.vy = stone.vy * 0.82;
-        }
         const earned = Math.round(100*selectedStone.mult*0.4);
         if (!isAuto) {
             document.getElementById('message').innerText = t('badTiming');
@@ -1053,104 +902,36 @@ function processBounce(rating, isAuto = false) {
     const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
     setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    const zone = getAngleZone(launchAngle);
-    let zM = 1;
-    if (zone === 'PERFECT') { zM = 1.25; } 
-    else if (zone === 'SAFETY') { zM = 1.08; }
+    const bdec = Math.pow(sp.vzDecay||0.83, bounceCount-1); const sbns = 1+(swipeSpeed/30);
+    const zone = getAngleZone(launchAngle); let zM=1, zvB=0;
+    if (zone==='PERFECT') { zM=1.25; zvB=0.2; } else if (zone==='SAFETY') { zM=1.08; zvB=0.05; }
 
-    const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
-    stone.z = 0.1;
-
-    if (rating === 'PERFECT') {
-        // 퍼펙트 적중 시 수평 속도(vy) 가속은 유지하되, 위로 튀는 높이(vz)는 기존 기준치들의 정확히 절반(0.5)으로 제어하여 컴팩트하게 튀게 만듭니다.
-        if (selectedStone.id === 2) {
-            // 고밀도 현무암(id:2) PERFECT 적중 시 2.4배 특수 고도 폭발 공식 보존
-            const basaltBdec = Math.pow(0.88, bounceCount - 1);
-            stone.vz = (1.3 * 0.5) * basaltBdec * 2.4;
-        } else {
-            stone.vz = ((sp.baseVz || 1.5) * 0.5) * bdec;
-        }
-    } else if (rating === 'GOOD') {
-        stone.vz = (sp.baseVz || 1.5) * 0.8 * bdec;
+    stone.z=0.1; stone.vz = (baseVz+zvB)*em*sbns*bdec;
+    const vdec = Math.pow(sp.vyDecay||0.92, bounceCount-1);
+    if (rating === 'BAD') {
+        stone.vy *= 0.40;
     } else {
-        stone.vz = (sp.baseVz || 1.5) * 0.22 * bdec;
+        const nvy = stone.vy * multEff * (1+(swipeSpeed*0.004)) * zM * vdec;
+        stone.vy = Math.min(nvy, stone.vy*Math.max(0.96,multEff*zM)*vdec);
     }
     stone.vx *= 0.9;
 
     hasTappedBounce = false;
-    isWindowActive = false;
     tapsInCurrentCycle = 0;
-    markerProgress = 0; // 바운스 성공 시 다음 낙하 주기를 위해 마커 진행도 초기화
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 💡 킹받는 랜덤 팝업 레이어 (trollBox) 동적 생성 및 1.5초 홀딩 공통 함수
-function showTrollPopup() {
-    const trollTexts = [
-        "물고기 밥 주기 성공! 🐟",
-        "돌과 함께 가라앉은 내 점수... 📉",
-        "혹시 손가락에 쥐가 나셨나요? 🐭",
-        "강물이 참 맑고 차갑네요. 🌊",
-        "수면과 돌의 각도가 예술적으로 어긋났습니다! 📐"
-    ];
-    const randomText = trollTexts[Math.floor(Math.random() * trollTexts.length)];
-    
-    const trollBox = document.createElement('div');
-    trollBox.className = 'troll-box';
-    trollBox.style.cssText = 'position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:16px 28px;background:rgba(5,5,20,0.95);border:2px solid #ef4444;border-radius:12px;color:#ef4444;font-family:"Impact", sans-serif;font-weight:900;font-size:16px;z-index:9999;box-shadow:0 0 25px rgba(239,68,68,0.75);text-align:center;pointer-events:none;animation:troll-fade-in 0.3s ease-out;';
-    trollBox.innerText = randomText;
-    document.getElementById('game-container').appendChild(trollBox);
-    
-    // 결과창 정산 및 닫기 전까지 부드럽게 잔류하도록 딜레이 조절
-    setTimeout(() => {
-        trollBox.style.transition = 'opacity 0.5s ease';
-        trollBox.style.opacity = '0';
-        setTimeout(() => trollBox.remove(), 500);
-    }, 1500);
-}
-
 function triggerWaterMiss() {
-    if (isDead) return;
-    isDead = true;
-    stone.vz = -3;
-    const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
-    
-    spawnRatingText(ex, ey, 'MISS');
-    spawnRipple(ex, ey);
-    createParticles(ex, ey, false, true, 22);
-    document.getElementById('message').innerText = t('missMsg');
-    haptic('error');
-    SoundManager.playSink();
-
-    // 💡 [킹받는 팝업 박스 동적 주입 코어]
-    const trollBox = document.createElement('div');
-    trollBox.style.cssText = 'position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);background:rgba(15,23,42,0.95);border:3px solid #ef4444;border-radius:24px;padding:25px;text-align:center;z-index:9999;box-shadow:0 0 30px rgba(239,68,68,0.6);transition:all 0.3s ease;pointer-events:none;';
-    
-    const roastMsgs = [
-        "🦭<br>물수제비가 아니라<br>그냥 돌덩이 투척인 줄!",
-        "🐟<br>축하합니다!<br>물고기 밥 주기 성공!",
-        "🥱<br>혹시 졸면서 던지셨나요?<br>(퐁당)"
-    ];
-    trollBox.innerHTML = `<p style="color:#fff;font-size:16px;font-weight:900;line-height:1.5;margin:0;font-family:'Impact',sans-serif;text-shadow:0 2px 4px #000;">${roastMsgs[Math.floor(Math.random() * roastMsgs.length)]}</p>`;
-    document.getElementById('game-container').appendChild(trollBox);
-
-    // 1초 동안 확실하게 멘트를 보여주어 유저를 약올린 뒤 정산 및 리셋 처리
-    setTimeout(() => {
-        trollBox.remove();
-        endGame();
-    }, 1000);
+    isDead=true; stone.vz=-3; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
+    spawnRatingText(ex,ey,'MISS'); spawnRipple(ex,ey); createParticles(ex,ey,false,true,22);
+    document.getElementById('message').innerText = t('missMsg'); haptic('error'); SoundManager.playSink();
 }
 function triggerWaterSink() {
-    if (isDead) return; // 중복 실행 방지
-    isDead = true;
-    stone.vz = -1.5;
-    const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
+    if (isDead) return;
+    isDead=true; stone.vz=-1.5; const ex=STONE_FIXED_X, ey=STONE_FIXED_Y;
     spawnRipple(ex,ey); createParticles(ex,ey,false,true,14);
     document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
-
-    // 💡 팝업과 1초 지연 없이 즉시 정산창으로 진입
-    endGame();
 }
 
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
@@ -1306,83 +1087,44 @@ function drawFxCanvas() {
     for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.update(); p.draw(fxCtx); if (p.alpha<=0) particles.splice(i,1); }
 
     if (currentStatus==='FLYING' && !isDead) {
-        // [0.5초 타임어택] 타임 윈도우가 활성화되어 있을 때만 돌 머리 위 45px 영역에 TAP! 자막 상시 드로잉
-        if (isWindowActive) {
-            const X = STONE_FIXED_X;
-            const stoneY = STONE_FIXED_Y - (isDead ? stone.z*2 : stone.z * 1.8);
-            const Y = stoneY - 45; // 돌의 실시간 그래픽 Y 좌표 대비 45픽셀 위
+        const s = selectedStone || STONES[0];
+        const rxRef = s.w / 2;
+        const ryRef = (s.w / 2) * 0.4;
 
-            const elapsed = Date.now() - tapWindowStart;
-            const ratio = Math.max(0, Math.min(1.0, (700 - elapsed) / 700));
+        fxCtx.save();
+        // 1. 기준 타겟 원 그리기 (돌 아래 수면 고정 좌표)
+        fxCtx.beginPath();
+        fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxRef, ryRef, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        fxCtx.lineWidth = 2;
+        fxCtx.stroke();
+        fxCtx.restore();
+
+        // 2. 돌이 낙하할 때 외부에서 이 과녁을 향해 수축하는 동적 타이밍 원 그리기
+        if (stone.vz < 0) {
+            const scale = 1.0 + stone.z / 30;
+            const rxTiming = rxRef * scale;
+            const ryTiming = ryRef * scale;
 
             fxCtx.save();
-            fxCtx.globalAlpha = 1.0;
-            fxCtx.translate(X, Y);
+            fxCtx.beginPath();
+            fxCtx.ellipse(STONE_FIXED_X, STONE_FIXED_Y, rxTiming, ryTiming, 0, 0, Math.PI * 2);
 
-            // 700ms 타이머 끝자락에 도달할수록 작아지며 빠르게 깜빡이는 압박 효과 연출
-            let scale = 1.0 + ratio * 0.3;
-            if (elapsed > 525) {
-                if (Math.floor(Date.now() / 50) % 2 === 0) {
-                    scale = 0; // 빠른 깜빡임 잔상
-                }
+            if (scale >= 0.85 && scale <= 1.15) { // PERFECT 오차 15% 내외
+                const isBlink = Math.floor(Date.now() / 80) % 2 === 0;
+                fxCtx.strokeStyle = isBlink ? 'var(--neon-lime)' : 'rgba(217, 255, 0, 0.2)';
+                fxCtx.lineWidth = 3.5;
+                fxCtx.shadowBlur = 12;
+                fxCtx.shadowColor = 'var(--neon-lime)';
+            } else {
+                fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                fxCtx.lineWidth = 1.5;
+                fxCtx.shadowBlur = 0;
+                fxCtx.setLineDash([4, 4]);
             }
-            fxCtx.scale(scale, scale);
 
-            fxCtx.font = '900 22px "Impact", "Arial Black", sans-serif';
-            fxCtx.textAlign = 'center';
-            fxCtx.textBaseline = 'middle';
-
-            // 1단계: 최외곽 섀도우 뇌선
-            fxCtx.strokeStyle = '#3b0712';
-            fxCtx.lineWidth = 6;
-            fxCtx.strokeText('TAP!', 0, 0);
-
-            // 2단계: 인라인 오렌지 림
-            fxCtx.strokeStyle = '#f97316';
-            fxCtx.lineWidth = 3;
-            fxCtx.strokeText('TAP!', 0, 0);
-
-            // 3단계: 불타는 옐로-레드 그라데이션 필
-            const grad = fxCtx.createLinearGradient(0, -10, 0, 10);
-            grad.addColorStop(0, '#fde047');  // 상단 밝은 황금 노란색
-            grad.addColorStop(0.4, '#eab308'); // 중간 주황 골드
-            grad.addColorStop(1, '#dc2626');  // 하단 붉은색
-            fxCtx.fillStyle = grad;
-            fxCtx.fillText('TAP!', 0, 0);
+            fxCtx.stroke();
             fxCtx.restore();
-
-            // PERFECT 타임어택 툰 감성 연출을 보조하는 주황/노랑 스파크 파티클 방출 (돌 머리 주변)
-            if (Math.random() < 0.4) {
-                const sparkCount = Math.random() < 0.5 ? 1 : 2;
-                for (let i = 0; i < sparkCount; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = Math.random() * 2 + 1;
-                    const size = Math.random() * 3 + 2;
-                    const colors = ['#fde047', '#eab308', '#f97316', '#dc2626'];
-                    particles.push({
-                        x: X + (Math.random() - 0.5) * 40,
-                        y: Y + (Math.random() - 0.5) * 15,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed - 1,
-                        size: size,
-                        alpha: 1.0,
-                        decay: Math.random() * 0.04 + 0.03,
-                        color: colors[Math.floor(Math.random() * colors.length)],
-                        update() {
-                            this.x += this.vx;
-                            this.y += this.vy;
-                            this.alpha -= this.decay;
-                        },
-                        draw(ctx) {
-                            ctx.save();
-                            ctx.globalAlpha = Math.max(0, this.alpha);
-                            ctx.fillStyle = this.color;
-                            ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
-                            ctx.restore();
-                        }
-                    });
-                }
-            }
         }
     }
 }
@@ -1532,7 +1274,6 @@ function endGame() {
 }
 
 function closeResultModal() {
-    document.querySelectorAll('.troll-box').forEach(el => el.remove());
     document.getElementById('result-modal').style.display='none'; 
     
     // 💡 1. 상태 머신을 확실하게 PRE_SPIN(뽑기 전)으로 먼저 돌려놓습니다.
@@ -1565,7 +1306,6 @@ function closeResultModal() {
     }
     
     setAssetBarVisible(true); 
-    gaugeSpeedMult = 2.0;
     updateAssetUI(); 
     changeRandomBg(); 
     drawStaticBackground();
