@@ -273,7 +273,7 @@ let animFrameId = null;
 
 // 실시간 3축 물리학 벡터
 let stone = { x:0, y:0, z:0, vx:0, vy:0, vz:0, activePhys:null, isCrit:false, isLotto:false };
-const GRAVITY = 0.16;
+const GRAVITY = 0.24;
 let swipeSpeed = 0;
 let markerProgress = 0; // 리듬게임형 가외 수축 마커 진행도
 let tapWindowStart = 0; // 타임어택 윈도우 시작 시간
@@ -1009,7 +1009,7 @@ function processBounce(rating, isAuto = false) {
 
     if (rating==='PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
-        stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5);
+        stone.vy = stone.vy * 0.92; // 가속 대신 속도 보존율을 높여주는 형태로 보상
         const earned = Math.round(100*selectedStone.mult*2.5);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
@@ -1020,7 +1020,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5);
+        stone.vy = stone.vy * (sp.vyDecay || 0.90); // 수면 마찰로 인한 정상 감속
         const earned = Math.round(100*selectedStone.mult*1.2);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
@@ -1030,6 +1030,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else {
         baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
+        stone.vy = stone.vy * (sp.vyDecay || 0.90); // 수면 마찰로 인한 정상 감속
         const earned = Math.round(100*selectedStone.mult*0.4);
         if (!isAuto) {
             document.getElementById('message').innerText = t('badTiming');
@@ -1063,13 +1064,6 @@ function processBounce(rating, isAuto = false) {
         stone.vz = (sp.baseVz || 1.5) * 0.8 * bdec;
     } else {
         stone.vz = (sp.baseVz || 1.5) * 0.22 * bdec;
-    }
-    const vdec = Math.pow(sp.vyDecay||0.92, bounceCount-1);
-    if (rating === 'BAD') {
-        stone.vy *= 0.40;
-    } else {
-        const nvy = stone.vy * multEff * (1+(swipeSpeed*0.004)) * zM * vdec;
-        stone.vy = Math.min(nvy, stone.vy*Math.max(0.96,multEff*zM)*vdec);
     }
     stone.vx *= 0.9;
 
