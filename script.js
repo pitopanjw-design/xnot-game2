@@ -881,7 +881,10 @@ function updatePhysics() {
     }
 
     layerProgress += stone.vy * 0.00008;
-    stone.y += stone.vy; stone.z += stone.vz; stone.vz -= GRAVITY;
+    stone.z += stone.vz; // 수직 위치에 수직 속도 더하기
+    stone.vz -= 0.22;    // 중력 가속도(GRAVITY) 상수를 프레임마다 누적 차감하여 완벽한 하향 포물선 유도
+    stone.x += stone.vx; // 수평 X축 이동
+    stone.y += stone.vy; // 수평 Y축 이동 (vy가 폭주하지 않으므로 정상 범위 내에서 전진)
 
     // [0.5초 타임어택 TAP! 시스템] 홀수 차수(bounceCount % 2 === 0) 낙하 시작(stone.vz < 0) 정밀 포착
     if (currentStatus === 'FLYING' && !isDead) {
@@ -1009,7 +1012,7 @@ function processBounce(rating, isAuto = false) {
 
     if (rating==='PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
-        stone.vy = stone.vy * 0.92; // 가속 대신 속도 보존율을 높여주는 형태로 보상
+        stone.vy = stone.vy * 0.95; // 람보르기니 폭주 방지를 위해 미세 감속 및 속도 보존 처리
         const earned = Math.round(100*selectedStone.mult*2.5);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
@@ -1020,7 +1023,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        stone.vy = stone.vy * (sp.vyDecay || 0.90); // 수면 마찰로 인한 정상 감속
+        stone.vy = stone.vy * (sp.vyDecay || 0.88); // 확실한 수면 마찰 저항 주입
         const earned = Math.round(100*selectedStone.mult*1.2);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
@@ -1030,7 +1033,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else {
         baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
-        stone.vy = stone.vy * (sp.vyDecay || 0.90); // 수면 마찰로 인한 정상 감속
+        stone.vy = stone.vy * (sp.vyDecay || 0.88); // 확실한 수면 마찰 저항 주입
         const earned = Math.round(100*selectedStone.mult*0.4);
         if (!isAuto) {
             document.getElementById('message').innerText = t('badTiming');
@@ -1068,6 +1071,7 @@ function processBounce(rating, isAuto = false) {
     stone.vx *= 0.9;
 
     hasTappedBounce = false;
+    isWindowActive = false;
     tapsInCurrentCycle = 0;
     markerProgress = 0; // 바운스 성공 시 다음 낙하 주기를 위해 마커 진행도 초기화
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
