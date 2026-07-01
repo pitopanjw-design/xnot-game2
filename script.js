@@ -250,7 +250,7 @@ let currentStatus = 'PRE_SPIN';
 let isPlaying = false;
 let isDead = false;
 
-let bounceCount = 0, perfectCount = 0, hasTappedBounce = false, tapsInCurrentCycle = 0;
+let bounceCount = 0, perfectCount = 0, hasTappedBounce = false, tapsInCurrentCycle = 0, comboCount = 0;
 let launchAngle = 20;
 let angleVal = 0.5, angleDir = 1;
 let angleTimerId = null;
@@ -764,7 +764,7 @@ function triggerLaunch(dy, dx) {
     const sf = swipeSpeed/20; if (ap) ap.friction = Math.min(0.9994, (ap.friction||0.978) + sf*0.0006);
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
-    bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
+    bounceCount = 0; perfectCount = 0; comboCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
     markerProgress = 0; 
     isWindowActive = false; 
     tapWindowStart = 0;
@@ -956,6 +956,12 @@ function processBounce(rating, isAuto = false) {
     }
     spawnRipple(ex, ey);
 
+    if (rating === 'PERFECT' && !isAuto) {
+        comboCount++;
+    } else {
+        comboCount = 0;
+    }
+
     const wakeCount = 26;
     for (let i = 0; i < wakeCount / 2; i++) {
         const vxL = -Math.random() * 4 - 2;
@@ -981,13 +987,16 @@ function processBounce(rating, isAuto = false) {
     if (rating==='PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
         stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5); // 강력한 전진 가속 복구!
-        const earned = Math.round(100*selectedStone.mult*2.5);
+        const earned = Math.round(100 * selectedStone.mult * 2.5 * (1 + comboCount * 0.2));
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
         }
         playerSP += earned; createParticles(ex,ey,true,false,Math.round(pCount*1.5));
         haptic('heavy'); SoundManager.playBounce(true);
-        if (perfectCount===1 && !isAuto) { spawnDramaticText(t('perfect')+' BOUNCE!','neon-lime'); triggerShake('medium'); }
+        if (comboCount > 0) {
+            spawnDramaticText(`${comboCount} COMBO!`, 'neon-lime');
+            triggerShake('medium');
+        }
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
@@ -1201,7 +1210,11 @@ function drawFxCanvas() {
     if (currentStatus==='FLYING' && !isDead) {
         const speed = stone.vy;
         if (speed > 3) {
-            const lineCount = Math.min(72, Math.floor((speed - 3) * 3.5));
+            const rarity = selectedStone?.rarity||'Ordinary';
+            let lineCount = Math.min(72, Math.floor((speed - 3) * 3.5));
+            if (rarity === 'Mythic') {
+                lineCount = Math.min(108, Math.floor((speed - 3) * 3.5 * 1.5));
+            }
             const alpha = Math.max(0, Math.min(0.8, (speed - 3) / 20));
             fxCtx.save(); fxCtx.globalAlpha = alpha;
             for (let i=0; i<lineCount; i++) {
@@ -1210,14 +1223,39 @@ function drawFxCanvas() {
                 const ex1 = CX + Math.cos(angle)*startR; const ey1 = HORIZON_Y + Math.sin(angle)*startR*0.45;
                 const ex2 = CX + Math.cos(angle)*endR; const ey2 = HORIZON_Y + Math.sin(angle)*endR*0.45;
 
-                const rarity = selectedStone?.rarity||'Ordinary'; let lc = 'rgba(255,255,255,0.8)';
+                let lc = 'rgba(255,255,255,0.8)';
                 if (rarity==='Mythic') lc='rgba(255,215,0,0.9)'; else if (rarity==='Legendary') lc='rgba(192,132,252,0.85)'; else if (rarity==='Rare') lc='rgba(0,240,255,0.85)';
 
                 fxCtx.beginPath(); fxCtx.moveTo(ex1,ey1); fxCtx.lineTo(ex2,ey2); fxCtx.strokeStyle=lc;
-                fxCtx.lineWidth = (Math.random()*2+0.5) * Math.max(0.5, Math.min(3.0, (speed - 3) / 10));
-                fxCtx.shadowBlur=3; fxCtx.shadowColor='#000'; fxCtx.stroke();
+                
+                let lw = (Math.random()*2+0.5) * Math.max(0.5, Math.min(3.0, (speed - 3) / 10));
+                if (rarity === 'Mythic') {
+                    lw *= 1.5;
+                }
+                fxCtx.lineWidth = lw;
+                
+                if (rarity === 'Mythic') {
+                    fxCtx.shadowBlur = 12;
+                    fxCtx.shadowColor = 'rgba(255, 215, 0, 0.8)';
+                } else {
+                    fxCtx.shadowBlur = 3;
+                    fxCtx.shadowColor = '#000';
+                }
+                fxCtx.stroke();
             }
             fxCtx.restore();
+
+            // Mythic 등급 전용 황금빛 전체 화면 장막 효과 추가 (GC-free)
+            if (rarity === 'Mythic') {
+                fxCtx.save();
+                fxCtx.globalAlpha = alpha * 0.45;
+                fxCtx.globalCompositeOperation = 'lighter';
+                fxCtx.fillStyle = 'rgba(255, 215, 0, 0.12)';
+                fxCtx.fillRect(0, 0, W, H);
+                fxCtx.fillStyle = 'rgba(249, 115, 22, 0.08)';
+                fxCtx.fillRect(0, 0, W, H);
+                fxCtx.restore();
+            }
         }
     }
 
