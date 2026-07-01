@@ -883,6 +883,7 @@ function updatePhysics() {
     if (stone.vz < 0 && stone.z <= 0 && !hasTappedBounce && !isDead) {
         hasTappedBounce = true;
         processBounce('GOOD', true);
+        return; // 💡 해당 프레임 연산을 즉시 종료하여 중복 충돌을 차단합니다.
     }
 
     if (stone.vz < 0 && stone.z < -6 && !isDead) {
@@ -1025,7 +1026,7 @@ function processBounce(rating, isAuto = false) {
 
     const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
     const sbns = 1 + (swipeSpeed / 30);
-    stone.z = 0.1;
+    stone.z = 5.0;
 
     // 💡 1번 수정 연속: PERFECT 고도 반토막(* 0.5) 연산 제거 및 고밀도 현무암 특수 기믹 보존
     if (rating === 'PERFECT') {
