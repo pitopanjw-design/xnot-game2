@@ -72,29 +72,25 @@ const SoundManager = {
         const stoneId = stone.id;
 
         if (stoneId === 0) {
-            // [0번 슬레이트]: 주파수대를 높게 잡고(800~1200Hz) triangle 파형으로 가볍고 빠르게 스치는 소리
             const freq = p ? 1100 : 900;
             const dur = p ? 0.08 : 0.05;
             this._play(freq, 'triangle', dur, p ? 0.25 : 0.15, p ? 800 : 700);
         } else if (stoneId === 1) {
-            // [1번 조약돌]: 순정 sine 파형의 경쾌한 중주파 바운스 음 유지
             if (p) {
                 [880,1320,1760].forEach((f,i)=>this._play(f,'sine',0.5,0.2/(i+1)));
             } else {
                 this._play(140,'sine',0.13,0.35,400);
             }
         } else if (stoneId === 2) {
-            // [2번 현무암]: 주파수 시작점을 낮게 잡고(120~250Hz), 두꺼운 triangle 또는 sawtooth 파형을 짧게 결합하여 쾅 튀는 베이스 톤
             const startFreq = p ? 200 : 160;
             const dur = p ? 0.15 : 0.11;
             const vol = p ? 0.45 : 0.35;
             this._play(startFreq, 'sawtooth', dur, vol, startFreq - 100);
             this._play(startFreq - 40, 'triangle', dur + 0.03, vol * 0.7, startFreq - 120);
         } else if (stoneId === 3) {
-            // [3번 황금운석]: 기존의 3중 화음(880, 1320, 1760Hz) sine 탑 쌓기 구조 고수
             const volMult = p ? 1.5 : 0.8;
             [880, 1320, 1760].forEach((f, i) => {
-                this._play(f, 'sine', p ? 0.5 : 0.3, (0.2 / (i + 1)) * volMult);
+                this._play(f, 'sine', p ? 0.5 : 0.3, (0.2 / (i+1)) * volMult);
             });
         }
     },
@@ -106,21 +102,13 @@ const SoundManager = {
         notes.forEach((f,i)=>setTimeout(()=>this._play(f,'triangle',0.4,0.12),i*70));
     },
     pauseAll() {
-        if (this.bgm) {
-            this.bgm.pause();
-        }
-        if (this.ctx && this.ctx.state !== 'suspended') {
-            this.ctx.suspend();
-        }
+        if (this.bgm) this.bgm.pause();
+        if (this.ctx && this.ctx.state !== 'suspended') this.ctx.suspend();
     },
     resumeAll() {
         if (this.isMuted === true) return;
-        if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume();
-        }
-        if (this.bgm && this.bgm.paused) {
-            this.bgm.play().catch(e => {});
-        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        if (this.bgm && this.bgm.paused) this.bgm.play().catch(e => {});
     }
 };
 
@@ -181,21 +169,18 @@ function applyI18n() {
         if(t(k)!==k) el.innerText=t(k);
     });
 
-    // 인트로 화면 버튼 강제 다국어 렌더링
     const introStart = document.getElementById('intro-start-btn');
     if (introStart) introStart.innerText = t('introStartBtn');
 
     const introInfo = document.getElementById('intro-info-btn');
     if (introInfo) introInfo.innerText = t('introInfoBtn');
 
-    // 하단 상점 및 메인 액션 버튼 렌더링
     const shopBtn = document.getElementById('shop-btn');
     if (shopBtn) shopBtn.innerText = t('shopBtn');
 
     const mainBtn = document.getElementById('main-btn');
     if (mainBtn) mainBtn.innerText = t('spinBtn');
 
-    // HUD 및 가이드 텍스트 초기화 매핑
     const message = document.getElementById('message');
     if (message) message.innerText = t('prepareMsg');
 
@@ -273,11 +258,11 @@ let animFrameId = null;
 
 // 실시간 3축 물리학 벡터
 let stone = { x:0, y:0, z:0, vx:0, vy:0, vz:0, activePhys:null, isCrit:false, isLotto:false };
-const GRAVITY = 0.24;
+const GRAVITY = 0.16; // 💡 1번 수정: 부드러운 순정 중력값 복구
 let swipeSpeed = 0;
-let markerProgress = 0; // 리듬게임형 가외 수축 마커 진행도
-let tapWindowStart = 0; // 타임어택 윈도우 시작 시간
-let isWindowActive = false; // 타임어택 윈도우 가동 상태 유무
+let markerProgress = 0; 
+let tapWindowStart = 0; 
+let isWindowActive = false; 
 
 // 화면 포지션 기준점
 let W = window.innerWidth, H = window.innerHeight;
@@ -404,7 +389,7 @@ function updateAssetUI() {
     if (sc) sc.innerText = playerSP.toLocaleString();
     
     const rt = document.getElementById('roulette-title');
-    const mb = document.getElementById('main-btn'); // 💡 명확한 로컬 변수 확보
+    const mb = document.getElementById('main-btn');
     
     if (playerHearts <= 0 && currentStatus === 'PRE_SPIN') {
         if (rt) rt.innerText = t('heartsLack');
@@ -468,19 +453,14 @@ function triggerWheel(e) {
     const idx = Math.floor(Math.random()*STONES.length);
     const stone_def = STONES[idx];
     
-    // 1. 네 가지 돌(0:슬레이트, 1:조약돌, 2:현무암, 3:황금운석)이 
-    //    12시 바늘 밑으로 오기 위해 필요한 정확한 룰렛판 회전 오프셋 각도 재매핑
     const offsets = [315, 225, 135, 45]; 
     const offset = offsets[idx];
-
-    // 6바퀴(2160도)를 돌고 목표 대각선 각도만큼 더 진진하여 바늘 밑에 안착
     const totalRot = 2160 + offset; 
 
     const wEl = document.getElementById('roulette-wheel');
     wEl.style.transition = 'transform 3.8s cubic-bezier(0.15, 0.85, 0.15, 1)';
     wEl.style.transform = `rotate(${totalRot}deg)`;
 
-    // 가챠 바퀴 회전 틱 사운드 피드백
     let lastSector = 0;
     const tick = () => {
         if (!isSpinning) return;
@@ -492,24 +472,20 @@ function triggerWheel(e) {
 
     wEl.addEventListener('transitionend', ()=>{
         wEl.style.transition = 'none';
-        // 애니메이션 종료 후 해당 대각선 정중앙 각도로 깔끔하게 고정 보정
         wEl.style.transform = `rotate(${offset}deg)`; 
 
         selectedStone = stone_def;
         document.getElementById('stone-desc-text').innerText = t(selectedStone.nameKey+'Desc');
         
-        // index.html 에러 방지 예외 처리
         const rt = document.getElementById('roulette-title');
         if (rt) rt.innerText = t('stoneReady');
         
-        // 정확한 대각선 구역에 불빛(하이라이트) 켜기
         const sectors = wEl.querySelectorAll('.wheel-sector');
         sectors.forEach((sec, sIdx) => {
             if(sIdx === idx) sec.classList.add('highlight');
             else sec.classList.remove('highlight');
         });
 
-        // 버튼 정상 활성화 및 스위칭
         const mb = document.getElementById('main-btn');
         if (mb) {
             mb.innerText = t('launchBtn');
@@ -639,7 +615,6 @@ function updateGaugePerfectZone() {
     const bg = document.getElementById('angle-gauge-bg');
     if (!bg) return;
 
-    // 이스터에그 영역 동적 생성 (index.html 수정을 피하고 무결성 확보)
     let easterBot = document.getElementById('gz-easter-bot');
     if (!easterBot) {
         easterBot = document.createElement('div');
@@ -767,7 +742,6 @@ function triggerLaunch(dy, dx) {
 
     let zone = getAngleZone(angleVal);
 
-    // [하이퍼 조건] 최고 속도 도달 상태에서 PERFECT 적중 시 강제 EASTEREG 판정 (소수점 오차 차단)
     if (gaugeSpeedMult >= 3.0 && zone === 'PERFECT') {
         zone = 'EASTEREG';
     }
@@ -791,8 +765,8 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
-    markerProgress = 0; // 발사 시 마커 진행도 초기화
-    isWindowActive = false; // 타임어택 윈도우 상태 리셋
+    markerProgress = 0; 
+    isWindowActive = false; 
     tapWindowStart = 0;
     for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
 
@@ -812,7 +786,6 @@ function triggerLaunch(dy, dx) {
         spawnDramaticText("HYPER DRIVE!", 'neon-gold');
         triggerShake('heavy');
 
-        // (순정 플래시 연출 유지)
         const flash = document.createElement('div');
         flash.style.cssText = 'position:absolute;inset:0;background:rgba(255,215,0,0.4);z-index:250;pointer-events:none;animation:fade-flash 0.5s ease forwards;';
         document.getElementById('game-container').appendChild(flash);
@@ -847,8 +820,6 @@ function triggerLaunch(dy, dx) {
 
     stone.vy *= mult;
     stone.vz *= mult;
-
-    // 발사 성공 직후 속도 배율 청소 (초기화)
     gaugeSpeedMult = 2.0;
 
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
@@ -869,7 +840,7 @@ function runGameLoop() {
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
-        stone.vz -= GRAVITY; // GRAVITY 전역 상수(0.24)만 깔끔하게 단일 적용
+        stone.vz -= GRAVITY; 
         stone.x += stone.vx;
         stone.y += stone.vy;
     } else {
@@ -888,23 +859,6 @@ function updatePhysics() {
 
     layerProgress += stone.vy * 0.00008;
 
-    // [0.5초 타임어택 TAP! 시스템] 홀수 차수(bounceCount % 2 === 0) 낙하 시작(stone.vz < 0) 정밀 포착
-    if (currentStatus === 'FLYING' && !isDead) {
-        const isNextOdd = (bounceCount % 2 === 0);
-        if (isNextOdd && stone.vz < 0) {
-            if (!isWindowActive) {
-                tapWindowStart = Date.now();
-                isWindowActive = true;
-            }
-        }
-        
-        // 타임 윈도우가 가동 중이고 700ms가 경과하면 가이드 즉시 소멸
-        if (isWindowActive && (Date.now() - tapWindowStart > 700)) {
-            isWindowActive = false;
-        }
-    }
-
-    // 💡 백업본의 검증된 정통 수평 마찰 지수 공식 장착
     const wm = 1 + (upgrades.weight * 0.0008); 
     const sfm = 1 + (swipeSpeed * 0.0001);
     const fr = stone.activePhys ? stone.activePhys.friction : 0.978;
@@ -914,13 +868,23 @@ function updatePhysics() {
     stone.vy *= effectiveFriction;
     stone.vx *= Math.min(0.999, 0.99 * wm);
 
-    // 방치형 자동 바운스: 유저가 탭하지 않은 상태에서 수면에 닿으면 GOOD 판정으로 자동 바운스
+    if (bounceCount % 2 === 0 && stone.vz < 0) {
+        if (!isWindowActive) {
+            tapWindowStart = Date.now();
+            isWindowActive = true;
+        }
+    }
+    
+    if (isWindowActive && (Date.now() - tapWindowStart > 700)) {
+        isWindowActive = false;
+    }
+
+    // 💡 3번 수정: 자동 바운스 시 플래그와 타이밍 판단 로직 안정화
     if (stone.vz < 0 && stone.z <= 0 && !hasTappedBounce && !isDead) {
         hasTappedBounce = true;
         processBounce('GOOD', true);
     }
 
-    // 미입력/패널티 침수 처리: 탭 기회를 소진했거나 연타로 인해 가라앉는 경우
     if (stone.vz < 0 && stone.z < -6 && !isDead) {
         triggerWaterMiss();
     }
@@ -953,31 +917,31 @@ function applyStonePos() {
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 🛑 1차 처벌: 짝수 회차(휴식기)에 화면을 건드리면 연타 꼼수로 간주, 즉시 미스 사망!
-    if (bounceCount % 2 !== 0) {
-        triggerWaterMiss();
+    if (stone.vz >= 0) {
+        hasTappedBounce = true; 
+        stone.vy *= 0.40;       
+        stone.vz *= 0.40;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
         return;
     }
 
-    // 🛑 2차 처벌: 홀수 회차 낙하 중이라도, 아직 머리 위에 'TAP!' 자막이 안 떴는데 미리 누르면 조기 연타로 즉시 미스 사망!
-    if (!isWindowActive) {
-        triggerWaterMiss();
+    if (!isWindowActive || hasTappedBounce) {
+        hasTappedBounce = true;
+        stone.vy *= 0.40;
+        stone.vz *= 0.40;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
         return;
     }
 
-    // 이미 이번 낙하 주기에서 정상 탭을 처리한 경우 중복 차단
-    if (hasTappedBounce) return;
-    
     const elapsed = Date.now() - tapWindowStart;
 
-    // ✨ [PERFECT 적중]: 700ms 이내에 정확히 반응한 경우 -> 고도 폭발 버프 가동
     if (elapsed <= 700) {
         hasTappedBounce = true;
-        isWindowActive = false; // 윈도우 잠금
+        isWindowActive = false; 
         processBounce('PERFECT', false);
-    } 
-    // 🛡️ [뒷북 구제]: 자막이 뜬 걸 보고 눌렀으나 0.7초를 아쉽게 초과한 경우 -> 즉시 사망 대신 BAD로 구제 통과
-    else {
+    } else {
         hasTappedBounce = true;
         isWindowActive = false;
         processBounce('BAD', false);
@@ -992,7 +956,6 @@ function processBounce(rating, isAuto = false) {
     }
     spawnRipple(ex, ey);
 
-    // V자형 과장 수면 물결(Wake) 파티클 생성
     const wakeCount = 26;
     for (let i = 0; i < wakeCount / 2; i++) {
         const vxL = -Math.random() * 4 - 2;
@@ -1014,9 +977,10 @@ function processBounce(rating, isAuto = false) {
     let pCount = rarity==='Mythic'?13 : rarity==='Legendary'?60 : rarity==='Rare'?35 : 22;
     let baseVz=0, multEff=1;
 
+    // 💡 2번 수정: PERFECT 및 GOOD 판정 시 가속 메커니즘을 순정 정통 공식으로 원상복구
     if (rating==='PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
-        stone.vy = stone.vy * 0.92; // 전진 속도는 기존 속도를 최대한 보존하되 수면 저항을 받아 미세 감속합니다
+        stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5); // 강력한 전진 가속 복구!
         const earned = Math.round(100*selectedStone.mult*2.5);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
@@ -1027,11 +991,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        if (selectedStone.id === 2) {
-            stone.vy = stone.vy * 0.75;
-        } else {
-            stone.vy = stone.vy * 0.82;
-        }
+        stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5); // 쾌적한 속도 유지
         const earned = Math.round(100*selectedStone.mult*1.2);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
@@ -1041,11 +1001,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else {
         baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
-        if (selectedStone.id === 2) {
-            stone.vy = stone.vy * 0.75;
-        } else {
-            stone.vy = stone.vy * 0.82;
-        }
+        stone.vy *= 0.40; // BAD 판정은 속도 디버프 처리
         const earned = Math.round(100*selectedStone.mult*0.4);
         if (!isAuto) {
             document.getElementById('message').innerText = t('badTiming');
@@ -1058,61 +1014,29 @@ function processBounce(rating, isAuto = false) {
     const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
     setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    const zone = getAngleZone(launchAngle);
-    let zM = 1;
-    if (zone === 'PERFECT') { zM = 1.25; } 
-    else if (zone === 'SAFETY') { zM = 1.08; }
-
     const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
+    const sbns = 1 + (swipeSpeed / 30);
     stone.z = 0.1;
 
+    // 💡 1번 수정 연속: PERFECT 고도 반토막(* 0.5) 연산 제거 및 고밀도 현무암 특수 기믹 보존
     if (rating === 'PERFECT') {
-        // 퍼펙트 적중 시 수평 속도(vy) 가속은 유지하되, 위로 튀는 높이(vz)는 기존 기준치들의 정확히 절반(0.5)으로 제어하여 컴팩트하게 튀게 만듭니다.
         if (selectedStone.id === 2) {
-            // 고밀도 현무암(id:2) PERFECT 적중 시 2.4배 특수 고도 폭발 공식 보존
             const basaltBdec = Math.pow(0.88, bounceCount - 1);
-            stone.vz = (1.3 * 0.5) * basaltBdec * 2.4;
+            stone.vz = baseVz * em * sbns * basaltBdec * 2.4;
         } else {
-            stone.vz = ((sp.baseVz || 1.5) * 0.5) * bdec;
+            stone.vz = baseVz * em * sbns * bdec;
         }
-    } else if (rating === 'GOOD') {
-        stone.vz = (sp.baseVz || 1.5) * 0.8 * bdec;
     } else {
-        stone.vz = (sp.baseVz || 1.5) * 0.22 * bdec;
+        stone.vz = baseVz * em * sbns * bdec;
     }
     stone.vx *= 0.9;
 
     hasTappedBounce = false;
     isWindowActive = false;
     tapsInCurrentCycle = 0;
-    markerProgress = 0; // 바운스 성공 시 다음 낙하 주기를 위해 마커 진행도 초기화
+    markerProgress = 0; 
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
-}
-
-// 💡 킹받는 랜덤 팝업 레이어 (trollBox) 동적 생성 및 1.5초 홀딩 공통 함수
-function showTrollPopup() {
-    const trollTexts = [
-        "물고기 밥 주기 성공! 🐟",
-        "돌과 함께 가라앉은 내 점수... 📉",
-        "혹시 손가락에 쥐가 나셨나요? 🐭",
-        "강물이 참 맑고 차갑네요. 🌊",
-        "수면과 돌의 각도가 예술적으로 어긋났습니다! 📐"
-    ];
-    const randomText = trollTexts[Math.floor(Math.random() * trollTexts.length)];
-    
-    const trollBox = document.createElement('div');
-    trollBox.className = 'troll-box';
-    trollBox.style.cssText = 'position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:16px 28px;background:rgba(5,5,20,0.95);border:2px solid #ef4444;border-radius:12px;color:#ef4444;font-family:"Impact", sans-serif;font-weight:900;font-size:16px;z-index:9999;box-shadow:0 0 25px rgba(239,68,68,0.75);text-align:center;pointer-events:none;animation:troll-fade-in 0.3s ease-out;';
-    trollBox.innerText = randomText;
-    document.getElementById('game-container').appendChild(trollBox);
-    
-    // 결과창 정산 및 닫기 전까지 부드럽게 잔류하도록 딜레이 조절
-    setTimeout(() => {
-        trollBox.style.transition = 'opacity 0.5s ease';
-        trollBox.style.opacity = '0';
-        setTimeout(() => trollBox.remove(), 500);
-    }, 1500);
 }
 
 function triggerWaterMiss() {
@@ -1128,7 +1052,6 @@ function triggerWaterMiss() {
     haptic('error');
     SoundManager.playSink();
 
-    // 💡 [킹받는 팝업 박스 동적 주입 코어]
     const trollBox = document.createElement('div');
     trollBox.style.cssText = 'position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);background:rgba(15,23,42,0.95);border:3px solid #ef4444;border-radius:24px;padding:25px;text-align:center;z-index:9999;box-shadow:0 0 30px rgba(239,68,68,0.6);transition:all 0.3s ease;pointer-events:none;';
     
@@ -1140,7 +1063,6 @@ function triggerWaterMiss() {
     trollBox.innerHTML = `<p style="color:#fff;font-size:16px;font-weight:900;line-height:1.5;margin:0;font-family:'Impact',sans-serif;text-shadow:0 2px 4px #000;">${roastMsgs[Math.floor(Math.random() * roastMsgs.length)]}</p>`;
     document.getElementById('game-container').appendChild(trollBox);
 
-    // 1초 동안 확실하게 멘트를 보여주어 유저를 약올린 뒤 정산 및 리셋 처리
     setTimeout(() => {
         trollBox.remove();
         endGame();
@@ -1148,21 +1070,20 @@ function triggerWaterMiss() {
 }
 
 function triggerWaterSink() {
-    if (isDead) return; // 중복 실행 방지
+    if (isDead) return;
     isDead = true;
     stone.vz = -1.5;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
     spawnRipple(ex,ey); createParticles(ex,ey,false,true,14);
     document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
 
-    // 💡 팝업과 1초 지연 없이 즉시 정산창으로 진입
     endGame();
 }
 
 function triggerWake(x,y,scale) { wakes.push({ x,y,vxL:-W*0.015*scale,vxR:W*0.015*scale, vy:H*0.022*scale,width:9*scale,alpha:1,xL:x,xR:x }); }
 
 // ===========================================================
-//  🖼️ [Gem 직접 코딩] 정통 3단 레이어 중첩 패럴랙스 엔진 (원상 복구 완료)
+//  🖼️ 정통 3단 레이어 중첩 패럴랙스 엔진
 // ===========================================================
 function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
     if (!img || !img.complete) return;
@@ -1197,7 +1118,6 @@ function drawStaticBackground() {
     const imgMid  = bgImgCache[`images/midground_${currentTheme}.png`];
     const imgFore = bgImgCache[`images/foreground_${currentTheme}.png`];
 
-    // 로비 대기 화면: 화면 정중앙(W/2, H/2) 소실점 기준 찌그러짐 없이 화면 전체 크기에 예쁘게 겹쳐 드로잉
     if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     if (imgMid && imgMid.complete) drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, 1.0);
     if (imgFore && imgFore.complete) drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, 1.0);
@@ -1214,14 +1134,10 @@ function draw7LayerBG() {
     const imgMid  = bgImgCache[`images/midground_${currentTheme}.png`];
     const imgFore = bgImgCache[`images/foreground_${currentTheme}.png`];
 
-    // 🌌 [Layer 1: 최하단 베이스] 'images/background_테마.png' 이미지를 화면 정중앙(W/2, H/2) 소실점 기준으로 화면 전체에 고정 렌더링 (스케일 변화 없음)
     bgCtx.save();
-    if (imgBase && imgBase.complete) {
-        drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
-    }
+    if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     bgCtx.restore();
 
-    // ⛰️ [Layer 2: 중간 레이어] 'images/midground_테마.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 거리(stone.y)에 비례하여 미세 팽창
     bgCtx.save();
     if (imgMid && imgMid.complete) {
         const midScale = Math.min(1.3, 1.0 + (stone.y * 0.00012));
@@ -1229,16 +1145,13 @@ function draw7LayerBG() {
     }
     bgCtx.restore();
 
-    // 🌊 [Layer 3: 최상단 전경 - 터널 가속도 핵심] 'images/foreground_테마.png' 이미지를 소실점 기준으로 배치하되, 돌의 전진 속도(stone.vy)와 누적 거리(stone.y)를 조합하여 실시간 확대 스케일값을 구함
     bgCtx.save();
     if (imgFore && imgFore.complete) {
         const fgScale = 1.0 + (stone.y * 0.015) % 2.5;
-        // drawScaledCenteredCoverImage가 내부적으로 translate(W/2, H/2), scale(fgScale, fgScale) 및 중심점 정렬 그리기를 처리함
         drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, fgScale);
     }
     bgCtx.restore();
 
-    // 수면 물결선 (rippleLayers) 렌더링 -> 고정 수면 위치(HORIZON_Y) 기준으로 원근 투영 유지
     rippleLayers.forEach(l => {
         const rz = l.z; 
         const lineY = HORIZON_Y + (H - HORIZON_Y) * Math.pow(rz, 2.2); 
@@ -1264,7 +1177,6 @@ function draw7LayerBG() {
         bgCtx.restore();
     });
 
-    // 수동 수면 웨이크 (wakes) 렌더링
     wakes.forEach(w => {
         bgCtx.save(); 
         bgCtx.beginPath(); 
@@ -1312,11 +1224,10 @@ function drawFxCanvas() {
     for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.update(); p.draw(fxCtx); if (p.alpha<=0) particles.splice(i,1); }
 
     if (currentStatus==='FLYING' && !isDead) {
-        // [0.5초 타임어택] 타임 윈도우가 활성화되어 있을 때만 돌 머리 위 45px 영역에 TAP! 자막 상시 드로잉
         if (isWindowActive) {
             const X = STONE_FIXED_X;
             const stoneY = STONE_FIXED_Y - (isDead ? stone.z*2 : stone.z * 1.8);
-            const Y = stoneY - 45; // 돌의 실시간 그래픽 Y 좌표 대비 45픽셀 위
+            const Y = stoneY - 45; 
 
             const elapsed = Date.now() - tapWindowStart;
             const ratio = Math.max(0, Math.min(1.0, (700 - elapsed) / 700));
@@ -1325,11 +1236,10 @@ function drawFxCanvas() {
             fxCtx.globalAlpha = 1.0;
             fxCtx.translate(X, Y);
 
-            // 700ms 타이머 끝자락에 도달할수록 작아지며 빠르게 깜빡이는 압박 효과 연출
             let scale = 1.0 + ratio * 0.3;
             if (elapsed > 525) {
                 if (Math.floor(Date.now() / 50) % 2 === 0) {
-                    scale = 0; // 빠른 깜빡임 잔상
+                    scale = 0; 
                 }
             }
             fxCtx.scale(scale, scale);
@@ -1338,26 +1248,22 @@ function drawFxCanvas() {
             fxCtx.textAlign = 'center';
             fxCtx.textBaseline = 'middle';
 
-            // 1단계: 최외곽 섀도우 뇌선
             fxCtx.strokeStyle = '#3b0712';
             fxCtx.lineWidth = 6;
             fxCtx.strokeText('TAP!', 0, 0);
 
-            // 2단계: 인라인 오렌지 림
             fxCtx.strokeStyle = '#f97316';
             fxCtx.lineWidth = 3;
             fxCtx.strokeText('TAP!', 0, 0);
 
-            // 3단계: 불타는 옐로-레드 그라데이션 필
             const grad = fxCtx.createLinearGradient(0, -10, 0, 10);
-            grad.addColorStop(0, '#fde047');  // 상단 밝은 황금 노란색
-            grad.addColorStop(0.4, '#eab308'); // 중간 주황 골드
-            grad.addColorStop(1, '#dc2626');  // 하단 붉은색
+            grad.addColorStop(0, '#fde047');  
+            grad.addColorStop(0.4, '#eab308'); 
+            grad.addColorStop(1, '#dc2626');  
             fxCtx.fillStyle = grad;
             fxCtx.fillText('TAP!', 0, 0);
             fxCtx.restore();
 
-            // PERFECT 타임어택 툰 감성 연출을 보조하는 주황/노랑 스파크 파티클 방출 (돌 머리 주변)
             if (Math.random() < 0.4) {
                 const sparkCount = Math.random() < 0.5 ? 1 : 2;
                 for (let i = 0; i < sparkCount; i++) {
@@ -1519,7 +1425,6 @@ function endGame() {
     isPlaying = false;
     cancelAnimationFrame(animFrameId);
     
-    // 게임 종료 즉시 화면의 모든 동적 이펙트 객체를 흔적도 없이 소멸
     fxCtx.clearRect(0, 0, W, H);
     particles = [];
     wakes = [];
@@ -1541,7 +1446,6 @@ function closeResultModal() {
     document.querySelectorAll('.troll-box').forEach(el => el.remove());
     document.getElementById('result-modal').style.display='none'; 
     
-    // 💡 1. 상태 머신을 확실하게 PRE_SPIN(뽑기 전)으로 먼저 돌려놓습니다.
     currentStatus='PRE_SPIN'; 
     
     const rs=document.getElementById('roulette-screen'); 
@@ -1562,7 +1466,6 @@ function closeResultModal() {
     const sd = document.getElementById('stone-desc-text');
     if (sd) sd.innerText='';
 
-    // 💡 2. 버튼 엘리먼트를 확실하게 취득하여 가챠 버튼으로 강제 강제 리셋합니다.
     const mb = document.getElementById('main-btn');
     if (mb) {
         mb.innerText = t('spinBtn'); 
