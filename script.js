@@ -1040,12 +1040,17 @@ function processBounce(rating, isAuto = false) {
     }
     stone.vx *= 0.9;
 
+    // 바운스가 수동이든 자동(방치)이든 성공했다면, 다음 낙하 주기를 위해 모든 타이밍 시스템을 리셋합니다.
     hasTappedBounce = false;
     isWindowActive = false;
     tapsInCurrentCycle = 0;
+    tapWindowStart = 0; // 💡 이 타이머 누적값을 확실하게 초기화해야 합니다.
     markerProgress = 0; 
+    
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
-    updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
+    updateAssetUI(); 
+    saveData(); 
+    spawnBounceMarker(ex, ey, bounceCount);
 }
 
 function triggerWaterMiss() {
