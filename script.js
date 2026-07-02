@@ -820,6 +820,9 @@ function triggerLaunch(dy, dx) {
 
     stone.vy *= mult;
     stone.vz *= mult;
+    
+    // 💡 [핵심 디버깅 코어]: 최초 발사 배율 독소 완전 제거
+    mult = 1.0; 
     gaugeSpeedMult = 2.0;
 
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
@@ -871,29 +874,35 @@ function updatePhysics() {
     stone.vy *= finalFriction;
     stone.vx *= Math.min(0.99, 0.95 + upgrades.weight * 0.002);
 
+    // 💡 [수정 포인트 1]: 수평 속도가 한계치 미만으로 떨어지면 수면 충돌을 계산하기 전에 즉시 가라앉힙니다.
+    if (stone.vy < 0.8 && !isDead) { 
+        triggerWaterSink(); 
+        return; // 루프 즉시 탈출
+    }
+
+    // [그다음 기존 타이머 윈도우 갱신 로직 위치]
     if (bounceCount % 2 === 0 && stone.vz < 0) {
         if (!isWindowActive) {
             tapWindowStart = Date.now();
             isWindowActive = true;
         }
     }
-    
     if (isWindowActive && (Date.now() - tapWindowStart > 700)) {
         isWindowActive = false;
     }
 
-    // 💡 3번 수정: 자동 바운스 시 플래그와 타이밍 판단 로직 안정화
+    // 💡 [수정 포인트 2]: 확실하게 살아있는 돌만 수면 바운스 판정을 계산합니다.
     if (stone.vz < 0 && stone.z <= 0 && !hasTappedBounce && !isDead) {
         hasTappedBounce = true;
         processBounce('GOOD', true);
-        return; // 💡 해당 프레임 연산을 즉시 종료하여 중복 충돌을 차단합니다.
+        return; 
     }
 
     if (stone.vz < 0 && stone.z < -6 && !isDead) {
         triggerWaterMiss();
+        return;
     }
 
-    if (stone.vy<0.8 && !isDead) { triggerWaterSink(); }
     if (currentStatus==='FLYING' && !isDead) { createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y); }
 
     applyStonePos();
@@ -988,7 +997,9 @@ function processBounce(rating, isAuto = false) {
     let baseVz=0, multEff=1;
 
     // 💡 2번 수정: PERFECT 및 GOOD 판정 시 가속 메커니즘을 순정 정통 공식으로 원상복구
-    if (rating==='PERFECT') {
+    stone.z = 5.0; // 수면 탈출 높이 보정
+
+    if (rating === 'PERFECT') {
         perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
         stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5); // 강력한 전진 가속 복구!
         const earned = Math.round(100 * selectedStone.mult * 2.5 * (1 + comboCount * 0.2));
@@ -1002,35 +1013,7 @@ function processBounce(rating, isAuto = false) {
             triggerShake('medium');
         }
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
-    } else if (rating==='GOOD') {
-        baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        stone.vy = stone.vy * 0.92 + (upgrades.weight * 0.1); // 자동 바운스 시 감속 체인 연결
-        const earned = Math.round(100*selectedStone.mult*1.2);
-        if (!isAuto) {
-            document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
-        }
-        playerSP += earned; createParticles(ex,ey,false,false,pCount);
-        haptic('medium'); SoundManager.playBounce(false);
-        if (rarity==='Mythic') spawnGodSplash(ex,ey);
-    } else {
-        baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
-        stone.vy *= 0.40; // BAD 판정은 속도 디버프 처리
-        const earned = Math.round(100*selectedStone.mult*0.4);
-        if (!isAuto) {
-            document.getElementById('message').innerText = t('badTiming');
-        }
-        playerSP += earned; createParticles(ex,ey,false,false,4,true);
-        haptic('light'); SoundManager.playBounce(false);
-    }
 
-    triggerWake(ex, ey, 1.0);
-    const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
-    setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
-
-    stone.z = 5.0; // 수면 탈출 높이 보정
-
-    if (rating === 'PERFECT') {
-        // PERFECT 타이밍 적중 시에는 유저의 스펙과 콤보에 맞는 강력한 초기 반발 부스터 파워를 재충전합니다.
         const sbns = 1 + (swipeSpeed / 30);
         if (selectedStone.id === 2) {
             const basaltBdec = Math.pow(0.88, bounceCount - 1);
@@ -1040,22 +1023,38 @@ function processBounce(rating, isAuto = false) {
             stone.vz = baseVz * em * sbns * bdec;
         }
     } else if (rating === 'GOOD') {
-        // 💡 [핵심 디버깅 코어]: 탭을 안 한 자동 바운스(GOOD) 상태일 때는, 
-        // 최초 던진 힘에서 돌 고유의 반발 계수(vzDecay)만큼 정직하게 계속 누적 감속시킵니다.
-        // Math.max(0.8, ...)를 곱해 최소한의 반동을 주되, 기존 누적된 튕김 감속비가 정직하게 반영됩니다.
         const decayFactor = sp.vzDecay || 0.83;
+        const bdec = Math.pow(decayFactor, bounceCount - 1);
+        const sbns = 1 + (swipeSpeed / 30);
         
-        if (bounceCount === 1) {
-            // 첫 바운스일 때만 초기 발사 에너지 기반 세팅
-            const sbns = 1 + (swipeSpeed / 30);
-            stone.vz = baseVz * em * sbns * decayFactor;
-        } else {
-            // 💡 두 번째 바운스부터는 직전에 튀어 올랐던 실제 정점 최고 속도의 비율을 상속받아 정직하게 감속 유도
-            // 수평 동력(stone.vy)에 따른 감속 체인 연결: Math.max(0.8, 현재 수평속도/기준속도)를 곱해 최종 감속 차단
-            const speedFactor = Math.max(0.8, Math.min(1.0, stone.vy / 25));
-            stone.vz = (Math.abs(stone.vz) * decayFactor + (baseVz * 0.15)) * speedFactor;
+        baseVz = (sp.baseVz || 1.5) * 0.8 + selectedStone.mult * 0.2;
+        
+        // 전진 속도를 정직하게 15% 이상 감속시킵니다.
+        stone.vy = stone.vy * 0.82; 
+        
+        const earned = Math.round(100 * selectedStone.mult * 1.2);
+        if (!isAuto) {
+            document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
         }
+        playerSP += earned;
+        createParticles(ex, ey, false, false, pCount);
+        haptic('medium');
+        SoundManager.playBounce(false);
+        
+        if (rarity === 'Mythic') spawnGodSplash(ex, ey);
+        
+        // 수직 속도에 지수 감속(bdec)을 정직하게 적용하여 무한 비행을 원천 차단합니다.
+        stone.vz = baseVz * em * sbns * bdec;
     } else {
+        baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
+        stone.vy *= 0.40; // BAD 판정은 속도 디버프 처리
+        const earned = Math.round(100*selectedStone.mult*0.4);
+        if (!isAuto) {
+            document.getElementById('message').innerText = t('badTiming');
+        }
+        playerSP += earned; createParticles(ex,ey,false,false,4,true);
+        haptic('light'); SoundManager.playBounce(false);
+
         // BAD 판정 시 동력 즉시 전멸
         stone.vz = (sp.baseVz || 1.5) * 0.15;
     }
