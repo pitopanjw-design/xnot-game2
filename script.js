@@ -1004,7 +1004,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
         baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5); // 쾌적한 속도 유지
+        stone.vy = stone.vy * 0.92 + (upgrades.weight * 0.1); // 자동 바운스 시 감속 체인 연결
         const earned = Math.round(100*selectedStone.mult*1.2);
         if (!isAuto) {
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
@@ -1027,21 +1027,39 @@ function processBounce(rating, isAuto = false) {
     const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
     setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
-    const sbns = 1 + (swipeSpeed / 30);
-    stone.z = 5.0;
+    stone.z = 5.0; // 수면 탈출 높이 보정
 
-    // 💡 1번 수정 연속: PERFECT 고도 반토막(* 0.5) 연산 제거 및 고밀도 현무암 특수 기믹 보존
     if (rating === 'PERFECT') {
+        // PERFECT 타이밍 적중 시에는 유저의 스펙과 콤보에 맞는 강력한 초기 반발 부스터 파워를 재충전합니다.
+        const sbns = 1 + (swipeSpeed / 30);
         if (selectedStone.id === 2) {
             const basaltBdec = Math.pow(0.88, bounceCount - 1);
             stone.vz = baseVz * em * sbns * basaltBdec * 2.4;
         } else {
+            const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
             stone.vz = baseVz * em * sbns * bdec;
         }
+    } else if (rating === 'GOOD') {
+        // 💡 [핵심 디버깅 코어]: 탭을 안 한 자동 바운스(GOOD) 상태일 때는, 
+        // 최초 던진 힘에서 돌 고유의 반발 계수(vzDecay)만큼 정직하게 계속 누적 감속시킵니다.
+        // Math.max(0.8, ...)를 곱해 최소한의 반동을 주되, 기존 누적된 튕김 감속비가 정직하게 반영됩니다.
+        const decayFactor = sp.vzDecay || 0.83;
+        
+        if (bounceCount === 1) {
+            // 첫 바운스일 때만 초기 발사 에너지 기반 세팅
+            const sbns = 1 + (swipeSpeed / 30);
+            stone.vz = baseVz * em * sbns * decayFactor;
+        } else {
+            // 💡 두 번째 바운스부터는 직전에 튀어 올랐던 실제 정점 최고 속도의 비율을 상속받아 정직하게 감속 유도
+            // 수평 동력(stone.vy)에 따른 감속 체인 연결: Math.max(0.8, 현재 수평속도/기준속도)를 곱해 최종 감속 차단
+            const speedFactor = Math.max(0.8, Math.min(1.0, stone.vy / 25));
+            stone.vz = (Math.abs(stone.vz) * decayFactor + (baseVz * 0.15)) * speedFactor;
+        }
     } else {
-        stone.vz = baseVz * em * sbns * bdec;
+        // BAD 판정 시 동력 즉시 전멸
+        stone.vz = (sp.baseVz || 1.5) * 0.15;
     }
+
     stone.vx *= 0.9;
 
     // 바운스가 수동이든 자동(방치)이든 성공했다면, 다음 낙하 주기를 위해 모든 타이밍 시스템을 리셋합니다.
