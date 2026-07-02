@@ -859,14 +859,17 @@ function updatePhysics() {
 
     layerProgress += stone.vy * 0.00008;
 
-    const wm = 1 + (upgrades.weight * 0.0008); 
-    const sfm = 1 + (swipeSpeed * 0.0001);
-    const fr = stone.activePhys ? stone.activePhys.friction : 0.978;
-    const baseFr = Math.min(0.9998, fr * wm * sfm);
-    const k = 0.04;
-    const effectiveFriction = 0.985 + (baseFr - 0.985) * Math.exp(-k * stone.vy);
-    stone.vy *= effectiveFriction;
-    stone.vx *= Math.min(0.999, 0.99 * wm);
+    // 돌 기본 속성 저항값 취득 (기본값 0.978)
+    const baseFr = stone.activePhys ? stone.activePhys.friction : 0.978;
+    
+    // 업그레이드(무게) 및 스와이프 속도가 높을수록 물의 저항을 덜 받도록 설계 (최대 0.995 캡핑으로 무한 동력 원천 차단)
+    const weightBonus = upgrades.weight * 0.001;
+    const speedBonus = swipeSpeed * 0.0002;
+    const finalFriction = Math.min(0.995, baseFr + weightBonus + speedBonus);
+    
+    // 전진할 때마다 공기 저항 및 매 프레임 수면 저항을 안정적으로 곱해줍니다.
+    stone.vy *= finalFriction;
+    stone.vx *= Math.min(0.99, 0.95 + upgrades.weight * 0.002);
 
     if (bounceCount % 2 === 0 && stone.vz < 0) {
         if (!isWindowActive) {
